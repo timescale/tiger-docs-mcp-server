@@ -1,33 +1,13 @@
 #!/usr/bin/env node
 import 'dotenv/config';
+import { cliEntrypoint } from './shared/boilerplate/src/cliEntrypoint.js';
 
-// Parse command line arguments first
-const args = process.argv.slice(2);
-const scriptName = args[0] || 'stdio';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
-async function run() {
-  try {
-    // Dynamically import only the requested module to prevent all modules from initializing
-    switch (scriptName) {
-      case 'stdio':
-        // Import and run the stdio server
-        await import('./stdio.js');
-        break;
-      case 'http':
-        // Import and run the HTTP server
-        await import('./httpServer.js');
-        break;
-      default:
-        console.error(`Unknown script: ${scriptName}`);
-        console.log('Available scripts:');
-        console.log('- stdio');
-        console.log('- http');
-        process.exit(1);
-    }
-  } catch (error) {
-    console.error('Error running script:', error);
-    process.exit(1);
-  }
-}
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-run();
+cliEntrypoint(
+  join(__dirname, 'stdio.js'),
+  join(__dirname, 'httpServer.js'),
+).catch(console.error);

@@ -5,13 +5,13 @@ import { ApiFactory } from '../shared/boilerplate/src/types.js';
 import { ServerContext } from '../types.js';
 
 const inputSchema = {
-  version: z
+  version: z.coerce
     .number()
     .int()
     .optional()
     .default(17)
     .describe('The PostgreSQL version to use for the query. Defaults to 17.'),
-  limit: z
+  limit: z.coerce
     .number()
     .min(1)
     .optional()

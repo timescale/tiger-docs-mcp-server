@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+      {{- if .Values.podAnnotations }}
+      annotations: {{- toYaml .Values.podAnnotations | nindent 8 }}
+      {{- end}}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      serviceAccountName: {{ .Values.name }}
+      nodeSelector:
+        savannah/role: system
+      tolerations:
+        - key: "savannah/role"
+          operator: "Equal"
+          value: "system"
+          effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - {{ .Values.name }}
+      containers:
+        - name: {{ .Values.name }}
+          image: {{ .Values.imageName }}:{{ .Values.imageTag }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - "node"
+            - "dist/index.js"
+            - "http"
+          ports:
+            - containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory }}
+              cpu: {{ .Values.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.resources.limits.memory }}
+
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: tiger-docs-mcp-server-database
+                  key: host
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: tiger-docs-mcp-server-database
+                  key: database
+            - name: PGPORT
+              valueFrom:
+                secretKeyRef:
+                  name: tiger-docs-mcp-server-database
+                  key: port
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: tiger-docs-mcp-server-database
+                  key: user
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tiger-docs-mcp-server-database
+                  key: password
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tiger-docs-mcp-server-openai
+                  key: apiKey

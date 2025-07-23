@@ -1,0 +1,20 @@
+name: Build Docker - Feature Branch Push
+on:
+  push:
+    branches-ignore:
+      - main
+
+jobs:
+  release:
+    name: Build Docker
+    uses: timescale/cloud-actions/.github/workflows/build.yaml@main
+    with:
+      tags: |
+        auto-${{ github.sha }}
+      registry: 142548018081.dkr.ecr.us-east-1.amazonaws.com/tiger-docs-mcp-server
+      dockerfile_path: ./Dockerfile
+      skip-scan: true
+    secrets:
+      API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.ORG_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.ORG_AWS_SECRET_ACCESS_KEY }}

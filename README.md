@@ -6,30 +6,33 @@ See [slack-db](https://github.com/timescale/slack-db/) for details on how the da
 
 ## API
 
-All methods are exposed as MCP tool and REST API endpoints.
+All methods are exposed as MCP tools and REST API endpoints.
 
 ### Postgres Docs Semantic Search
 
 Searches the PostgreSQL documentation for relevant entries based on a semantic embedding of the search prompt.
 
-_Tool name:_ `semanticSearchPostgresDocs`
-_Api endpoint:_ `GET /api/semantic-search/postgres-docs`
+**Tool name**
+: `semanticSearchPostgresDocs`
+
+**API endpoint**
+: `GET /api/semantic-search/postgres-docs`
 
 #### Input
 
 (use query parameters for REST API)
 
-```json
+```jsonc
 {
   "prompt": "What is the SQL command to create a table?",
   "version": 17, // optional, default is 17
-  "limit": 10 // optional, default is 10
+  "limit": 10, // optional, default is 10
 }
 ```
 
 #### Output
 
-```json
+```jsonc
 {
   "results": [
     {
@@ -37,10 +40,10 @@ _Api endpoint:_ `GET /api/semantic-search/postgres-docs`
       "headerPath": ["The SQL Language", "Creating a New Table"],
       "content": "CREATE TABLE ...",
       "tokenCount": 595,
-      "distance": 0.40739564321624144
-    }
+      "distance": 0.40739564321624144,
+    },
     // more results...
-  ]
+  ],
 }
 ```
 
@@ -99,6 +102,8 @@ Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config
 ## Deployment
 
 We use a Helm chart to deploy to Kubernetes. See the `chart/` directory for details.
+
+The service is accessible to other services in the cluster via the DNS name `tiger-docs-mcp-server.savannah-system.svc.cluster.local`.
 
 ### Secrets
 

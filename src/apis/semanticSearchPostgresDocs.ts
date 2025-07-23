@@ -88,8 +88,6 @@ SELECT
       [JSON.stringify(embedding), version, limit],
     );
 
-    console.log(result.rows);
-
     return {
       results: result.rows,
     };

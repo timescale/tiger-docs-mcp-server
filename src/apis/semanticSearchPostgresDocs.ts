@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
-
-import { type ApiFactory } from '../types.js';
+import { ApiFactory } from '../shared/boilerplate/src/types.js';
+import { ServerContext } from '../types.js';
 
 const inputSchema = {
   version: z
@@ -52,6 +52,7 @@ const outputSchema = {
 } as const;
 
 export const semanticSearchPostgresDocsFactory: ApiFactory<
+  ServerContext,
   typeof inputSchema,
   typeof outputSchema,
   z.infer<(typeof outputSchema)['results']>

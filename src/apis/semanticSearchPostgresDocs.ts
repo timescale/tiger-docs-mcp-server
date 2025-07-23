@@ -26,7 +26,10 @@ const inputSchema = {
 } as const;
 
 const zEmbeddedDoc = z.object({
-  id: z.string().describe('The unique identifier of the documentation entry.'),
+  id: z
+    .number()
+    .int()
+    .describe('The unique identifier of the documentation entry.'),
   headerPath: z
     .array(z.string())
     .describe('The path to the header of the documentation entry.'),
@@ -72,7 +75,7 @@ export const semanticSearchPostgresDocsFactory: ApiFactory<
     const result = await pgPool.query<EmbeddedDoc>(
       /* sql */ `
 SELECT
-  id,
+  id::int,
   header_path AS "headerPath",
   content,
   token_count::int AS "tokenCount",

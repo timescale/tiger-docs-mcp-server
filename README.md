@@ -54,7 +54,7 @@ Searches the PostgreSQL documentation for relevant entries based on a semantic e
 Cloning and running the server locally.
 
 ```bash
-git clone --recurse-submodules git@github.com:timescale/tiger-slack-mcp-server.git
+git clone --recurse-submodules git@github.com:timescale/tiger-docs-mcp-server.git
 ```
 
 ### Submodules

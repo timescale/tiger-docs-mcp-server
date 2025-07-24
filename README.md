@@ -51,6 +51,28 @@ Searches the PostgreSQL documentation for relevant entries based on a semantic e
 
 ## Development
 
+Cloning and running the server locally.
+
+```bash
+git clone --recurse-submodules git@github.com:timescale/tiger-slack-mcp-server.git
+```
+
+### Submodules
+
+This project uses git submodules to include the mcp boilerplate code. If you cloned the repo without the `--recurse-submodules` flag, run the following command to initialize and update the submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+You may also need to run this command if you pull changes that update a submodule. You can simplify this process by changing you git configuration to automatically update submodules when you pull:
+
+```bash
+git config --global submodule.recurse true
+```
+
+### Building
+
 Run `npm i` to install dependencies and build the project. Use `npm run watch` to rebuild on changes.
 
 Create a `.env` file based on the `.env.sample` file.

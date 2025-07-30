@@ -47,6 +47,9 @@ spec:
             - "node"
             - "dist/index.js"
             - "http"
+            {{- if .Values.tracing.enabled }}
+            - "--instrument"
+            {{- end }}
           ports:
             - containerPort: {{ .Values.containerPort }}
               protocol: TCP
@@ -89,3 +92,7 @@ spec:
                 secretKeyRef:
                   name: tiger-docs-mcp-server-openai
                   key: apiKey
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.name }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.otlpEndpoint | quote }}

@@ -27,3 +27,7 @@ resources:
 
 podAnnotations:
   kubectl.kubernetes.io/default-container: tiger-docs-mcp-server
+
+tracing:
+  otlpEndpoint: http://tracing-collector:4317
+  enabled: false

@@ -47,7 +47,7 @@ spec:
             - "node"
             - "dist/index.js"
             - "http"
-            {{- if .Values.tracing.enabled }}
+            {{- if .Values.instrumentation.enabled }}
             - "--instrument"
             {{- end }}
           ports:
@@ -95,4 +95,13 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: {{ .Values.name }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: {{ .Values.tracing.otlpEndpoint | quote }}
+              value: {{ .Values.instrumentation.otlpEndpoint | quote }}
+            - name: LOGFIRE_TRACES_ENDPOINT
+              value: {{ .Values.logfire.tracesEndpoint | quote }}
+            - name: LOGFIRE_LOGS_ENDPOINT
+              value: {{ .Values.logfire.logsEndpoint | quote }}
+            - name: LOGFIRE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tiger-docs-mcp-server-logfire
+                  key: token

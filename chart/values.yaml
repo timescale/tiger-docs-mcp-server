@@ -28,6 +28,11 @@ resources:
 podAnnotations:
   kubectl.kubernetes.io/default-container: tiger-docs-mcp-server
 
-tracing:
+logfire:
+  token: ''
+  tracesEndpoint: https://logfire-api.pydantic.dev/v1/traces
+  logsEndpoint: https://logfire-api.pydantic.dev/v1/logs
+
+instrumentation:
   otlpEndpoint: http://tracing-collector:4317
   enabled: false

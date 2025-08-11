@@ -8,14 +8,12 @@ const inputSchema = {
   version: z.coerce
     .number()
     .int()
-    .optional()
-    .default(17)
+    .nullable()
     .describe('The PostgreSQL version to use for the query. Defaults to 17.'),
   limit: z.coerce
     .number()
     .min(1)
-    .optional()
-    .default(10)
+    .nullable()
     .describe('The maximum number of matches to return. Defaults to 10.'),
   prompt: z
     .string()
@@ -86,7 +84,7 @@ SELECT
  ORDER BY distance
  LIMIT $3
 `,
-      [JSON.stringify(embedding), version, limit],
+      [JSON.stringify(embedding), version || 17, limit || 10],
     );
 
     return {

@@ -8,8 +8,7 @@ const inputSchema = {
   limit: z.coerce
     .number()
     .min(1)
-    .optional()
-    .default(10)
+    .nullable()
     .describe('The maximum number of matches to return. Defaults to 10.'),
   prompt: z
     .string()
@@ -76,7 +75,7 @@ SELECT
  ORDER BY distance
  LIMIT $2
 `,
-      [JSON.stringify(embedding), limit],
+      [JSON.stringify(embedding), limit || 10],
     );
 
     return {

@@ -2,10 +2,14 @@
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
   namespace: {{ .Release.Namespace }}
   name: {{ .Values.name }}
   labels:
     app: {{ .Values.name }}
+    app.kubernetes.io/name: {{ .Values.name }}
 spec:
   selector:
     app: {{ .Values.name }}
@@ -13,4 +17,7 @@ spec:
     - port: {{ .Values.servicePort }}
       targetPort: {{ .Values.containerPort }}
       protocol: TCP
-  type: ClusterIP
+  type: LoadBalancer
+  sessionAffinity: None
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster

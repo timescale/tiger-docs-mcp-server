@@ -65,32 +65,32 @@ spec:
             - name: PGHOST
               valueFrom:
                 secretKeyRef:
-                  name: tiger-docs-mcp-server-database
+                  name: {{ .Values.name }}-database
                   key: host
             - name: PGDATABASE
               valueFrom:
                 secretKeyRef:
-                  name: tiger-docs-mcp-server-database
+                  name: {{ .Values.name }}-database
                   key: database
             - name: PGPORT
               valueFrom:
                 secretKeyRef:
-                  name: tiger-docs-mcp-server-database
+                  name: {{ .Values.name }}-database
                   key: port
             - name: PGUSER
               valueFrom:
                 secretKeyRef:
-                  name: tiger-docs-mcp-server-database
+                  name: {{ .Values.name }}-database
                   key: user
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: tiger-docs-mcp-server-database
+                  name: {{ .Values.name }}-database
                   key: password
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: tiger-docs-mcp-server-openai
+                  name: {{ .Values.name }}-openai
                   key: apiKey
             - name: OTEL_SERVICE_NAME
               value: {{ .Values.name }}
@@ -103,5 +103,5 @@ spec:
             - name: LOGFIRE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: tiger-docs-mcp-server-logfire
+                  name: {{ .Values.name }}-logfire
                   key: token

@@ -150,6 +150,11 @@ kubectl -n savannah-system create secret generic tiger-docs-mcp-server-logfire \
   --dry-run=client \
   --from-literal=token="pylf_v1_us_" \
   -o yaml | kubeseal -o yaml
+
+kubectl -n savannah-system create secret generic tiger-docs-mcp-server-tailscale \
+  --dry-run=client \
+  --from-literal=authkey="tskey-auth-" \
+  -o yaml | kubeseal -o yaml
 ```
 
 Update `./chart/values/dev.yaml` with the output.

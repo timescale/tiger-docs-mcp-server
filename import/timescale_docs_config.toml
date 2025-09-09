@@ -1,0 +1,23 @@
+# Configuration for domain-specific element removal
+# Add CSS selectors to ignore for each domain
+
+[domain_selectors]
+docs_tigerdata_com = [
+  "script",
+  "style",
+  "nav",
+  "footer",
+  "#plan-availability",
+  ".sr-only",
+  ".code-block-copy-button"
+]
+# Add more domains as needed
+
+# Default selectors applied to all domains
+[default_selectors]
+selectors = [
+  "script",
+  "style",
+  "nav",
+  "footer"
+]

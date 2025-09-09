@@ -34,8 +34,6 @@ const createStateStore = () => {
 
         // Ensure migrations table exists
         await client.query(/* sql */ `
-          CREATE SCHEMA IF NOT EXISTS ${schema};
-
           CREATE TABLE IF NOT EXISTS ${schema}.migrations (
             id SERIAL PRIMARY KEY,
             set JSONB NOT NULL,

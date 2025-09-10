@@ -1,6 +1,6 @@
 import { semanticSearchPostgresDocsFactory } from './semanticSearchPostgresDocs.js';
 import { semanticSearchTimescaleDocsFactory } from './semanticSearchTimescaleDocs.js';
-import { getPromptContentFactory } from './getPromptContent.js';
+import { getPromptContentFactory } from './getGuide.js';
 
 export const apiFactories = [
   semanticSearchPostgresDocsFactory,

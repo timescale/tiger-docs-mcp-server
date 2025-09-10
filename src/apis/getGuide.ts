@@ -48,12 +48,12 @@ export const getPromptContentFactory: ApiFactory<
   typeof inputSchema,
   typeof outputSchema
 > = ({ pgPool }) => ({
-  name: 'getPromptContent',
+  name: 'getGuide',
   config: {
-    title: 'Get TimescaleDB Prompt Content',
-    description: `Retrieve detailed prompt content for TimescaleDB guidance and best practices. This tool provides access to comprehensive guides that help with TimescaleDB implementation.
+    title: 'Get TimescaleDB Guide',
+    description: `Retrieve detailed TimescaleDB guides and best practices.
 
-Available Prompts:
+Available Guides:
 
 ${availablePrompts.map(p => `**${p.name}** - ${p.description}`).join('\n\n')}
 `,

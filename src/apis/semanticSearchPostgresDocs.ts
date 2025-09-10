@@ -31,6 +31,10 @@ const zEmbeddedDoc = z.object({
   headerPath: z
     .array(z.string())
     .describe('The path to the header of the documentation entry.'),
+  sourceUrl: z
+    .string()
+    .url()
+    .describe('The URL of the documentation entry.'),
   content: z.string().describe('The content of the documentation entry.'),
   tokenCount: z
     .number()
@@ -76,6 +80,7 @@ export const semanticSearchPostgresDocsFactory: ApiFactory<
 SELECT
   id::int,
   header_path AS "headerPath",
+  source_url AS "sourceUrl",
   content,
   token_count::int AS "tokenCount",
   embedding <=> $1::vector(1536) AS distance

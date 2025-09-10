@@ -33,7 +33,7 @@ const zEmbeddedDoc = z.object({
     .describe('The path to the header of the documentation entry.'),
   sourceUrl: z
     .string()
-    .url()
+    .nullable()
     .describe('The URL of the documentation entry.'),
   content: z.string().describe('The content of the documentation entry.'),
   tokenCount: z

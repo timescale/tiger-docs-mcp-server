@@ -1,7 +1,6 @@
 ---
-name: timescaledbSetup
 title: TimescaleDB Complete Setup Guide
-description: Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates. Instructions for selecting: partition columns, segment_by columns, order_by columns, chunk time interval, real-time aggregation.
+description: "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates. Instructions for selecting: partition columns, segment_by columns, order_by columns, chunk time interval, real-time aggregation."
 ---
 
 # TimescaleDB Complete Setup Guide for AI Coding Assistants

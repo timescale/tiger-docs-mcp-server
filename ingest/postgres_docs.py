@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup, element as BeautifulSoupElement
+import json
 from markdownify import markdownify
 import openai
 import os
@@ -27,7 +28,8 @@ MD_DIR = BUILD_DIR / "md"
 
 POSTGRES_BASE_URL = "https://www.postgresql.org/docs"
 
-ENC = tiktoken.get_encoding("o200k_base")
+ENC = tiktoken.get_encoding("cl100k_base")
+MAX_CHUNK_TOKENS = 7000
 
 def update_repo():
     if not POSTGRES_DIR.exists():
@@ -167,16 +169,64 @@ refentry: {is_refentry}
 
 
 @dataclass
+class Page:
+    id: int
+    version: int
+    url: str
+    domain: str
+    filename: str
+    content_length: int = 0
+    chunks_count: int = 0
+
+
+@dataclass
 class Chunk:
+    idx: int
     header: str
     header_path: list[str]
     content: str
-    slug: str
-    version: int
     token_count: int = 0
+    subindex: int = 0
+
+
+def insert_page(
+    conn: psycopg.Connection,
+    page: Page,
+) -> None:
+    print('inserting page', page.filename, page.url)
+    result = conn.execute(
+        "insert into docs.postgres_pages (version, url, domain, filename, content_length, chunks_count) values (%s,%s,%s,%s,%s,%s) RETURNING id",
+        [
+            page.version,
+            page.url,
+            page.domain,
+            page.filename,
+            0,
+            0,
+        ],
+    )
+    row = result.fetchone()
+    assert row is not None
+    page.id = row[0]
+
+
+def update_page_stats(
+    conn: psycopg.Connection,
+    page: Page,
+) -> None:
+    conn.execute(
+        "update docs.postgres_pages set content_length = %s, chunks_count = %s where id = %s",
+        [
+            page.content_length,
+            page.chunks_count,
+            page.id,
+        ],
+    )
+
 
 def insert_chunk(
     conn: psycopg.Connection,
+    page: Page,
     chunk: Chunk,
 ) -> None:
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
@@ -191,22 +241,65 @@ def insert_chunk(
     content = chunk.content
     # token_count, embedding = embed(header_path, content)
     print(f"header: {chunk.header}")
+    url = page.url
+    if len(chunk.header_path) > 1:
+        pattern = r'\((#\S+)\)'
+        match = re.search(pattern, chunk.header_path[-1])
+        if match:
+            url += match.group(1).lower()
     conn.execute(
-        "insert into docs.postgres_2 (version, header, header_path, source_url, content, token_count, embedding) values (%s,%s,%s,%s,%s,%s,%s)",
+        "insert into docs.postgres_chunks (page_id, chunk_index, sub_chunk_index, content, metadata, embedding) values (%s,%s,%s,%s,%s,%s)",
         [
-            chunk.version,
-            chunk.header,
-            chunk.header_path,
-            f"{POSTGRES_BASE_URL}/{chunk.version}/{chunk.slug}",
-            content,
-            0,
+            page.id,
+            chunk.idx,
+            chunk.subindex,
+            chunk.content,
+            json.dumps({
+                "header": chunk.header,
+                "header_path": chunk.header_path,
+                "source_url": url,
+                "token_count": chunk.token_count,
+            }),
             embedding,
         ],
     )
-    conn.commit()
 
 
-def process_chunk(conn: psycopg.Connection, chunk: Chunk) -> None:
+def split_chunk(chunk: Chunk) -> list[Chunk]:
+    num_subchunks = (chunk.token_count // MAX_CHUNK_TOKENS) + 1
+    input_ids = ENC.encode(chunk.content)
+
+    tokens_per_chunk = len(input_ids) // num_subchunks
+
+    subchunks = []
+    subindex = 0
+    idx = 0
+    while idx < len(input_ids):
+        cur_idx = min(idx + tokens_per_chunk, len(input_ids))
+        chunk_ids = input_ids[idx:cur_idx]
+        if not chunk_ids:
+            break
+        decoded = ENC.decode(chunk_ids)
+        if decoded:
+            subchunks.append(Chunk(
+                idx=chunk.idx,
+                header=chunk.header,
+                header_path=chunk.header_path,
+                content=decoded,
+                token_count=len(chunk_ids),
+                subindex=subindex,
+            ))
+            subindex += 1
+        if cur_idx == len(input_ids):
+            break
+        idx += tokens_per_chunk
+    return subchunks
+
+
+def process_chunk(conn: psycopg.Connection, page: Page, chunk: Chunk) -> None:
+    page.content_length += len(chunk.content)
+    page.chunks_count += 1
+
     if chunk.content == "":  # discard empty chunks
         return
 
@@ -216,39 +309,55 @@ def process_chunk(conn: psycopg.Connection, chunk: Chunk) -> None:
 
     chunks = [chunk]
 
-    if chunk.token_count > 7000:
-        print(f"chunk {chunk.header} too large ({chunk.token_count} tokens), skipping...")
-        return
-        # chunks = chunk_by_term(chunk)
+    if chunk.token_count > MAX_CHUNK_TOKENS:
+        print(f"Chunk {chunk.header} too large ({chunk.token_count} tokens), splitting...")
+        chunks = split_chunk(chunk)
 
     for chunk in chunks:
-        insert_chunk(conn, chunk)
+        insert_chunk(conn, page, chunk)
+    conn.commit()
 
 
 def chunk_files(conn: psycopg.Connection, version: int) -> None:
-    conn.execute("delete from docs.postgres_2 where version = %s", [version])
+    conn.execute("delete from docs.postgres_chunks where page_id IN (select id from docs.postgres_pages where version = %s)", [version])
+    conn.execute("delete from docs.postgres_pages where version = %s", [version])
+    conn.commit()
 
     header_pattern = re.compile(
         "^(#{1,3}) .+$"
-    )  # find lines that are markdown headers with 1-3 #
+    )
+    section_prefix = r'^[A-Za-z0-9.]+\.\s*'
+    # TODO: trim Chapter ##. prefix from headers too, e.g.: Chapter 65. Database Physical Storage
     codeblock_pattern = re.compile("^```")
     for md in MD_DIR.glob("*.md"):
         print(f"chunking {md}...")
         with md.open() as f:
             # process the frontmatter
             f.readline()
-            title_line = f.readline()
+            f.readline()  # title line
             slug = f.readline().split(":", 1)[1].strip()
             refentry = f.readline().split(":", 1)[1].strip().lower() == "true"
             f.readline()
+
+            page = Page(
+                id=0,
+                version=version,
+                url=f"{POSTGRES_BASE_URL}/{version}/{slug}",
+                domain="postgresql.org",
+                filename=md.name,
+            )
+
+            insert_page(conn, page)
+
             header_path = []
+            idx = 0
             chunk: Chunk | None = None
             in_codeblock = False
             while True:
                 line = f.readline()
                 if line == "":
                     if chunk is not None:
-                        process_chunk(conn, chunk)
+                        process_chunk(conn, page, chunk)
                     break
                 match = header_pattern.match(line)
                 if match is None or in_codeblock or (refentry and chunk is not None):
@@ -257,19 +366,22 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
                         in_codeblock = not in_codeblock
                     chunk.content += line
                     continue
-                header = match.group(1)
-                depth = len(header)
+                header_hases = match.group(1)
+                depth = len(header_hases)
                 header_path = header_path[: (depth - 1)]
-                header_path.append(line.lstrip("#").strip())
+                header = re.sub(section_prefix, '', line.lstrip("#").strip()).strip()
+                header_path.append(header)
                 if chunk is not None:
-                    process_chunk(conn, chunk)
+                    process_chunk(conn, page, chunk)
                 chunk = Chunk(
-                    header=line.lstrip("#").strip(),
+                    idx=idx,
+                    header=header,
                     header_path=header_path.copy(),
                     content="",
-                    slug=slug,
-                    version=version,
                 )
+                idx += 1
+            update_page_stats(conn, page)
+            conn.commit()
 
 
 if __name__ == "__main__":
@@ -285,5 +397,5 @@ if __name__ == "__main__":
         for version, tag in postgres_versions:
             print(f"Building Postgres {version} documentation...")
             # build_html(version, tag)
-            build_markdown()
+            # build_markdown()
             chunk_files(conn, version)

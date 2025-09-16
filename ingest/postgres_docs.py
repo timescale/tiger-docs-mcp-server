@@ -195,7 +195,7 @@ def insert_page(
 ) -> None:
     print('inserting page', page.filename, page.url)
     result = conn.execute(
-        "insert into docs.postgres_pages (version, url, domain, filename, content_length, chunks_count) values (%s,%s,%s,%s,%s,%s) RETURNING id",
+        "insert into docs.postgres_pages_tmp (version, url, domain, filename, content_length, chunks_count) values (%s,%s,%s,%s,%s,%s) RETURNING id",
         [
             page.version,
             page.url,
@@ -215,7 +215,7 @@ def update_page_stats(
     page: Page,
 ) -> None:
     conn.execute(
-        "update docs.postgres_pages set content_length = %s, chunks_count = %s where id = %s",
+        "update docs.postgres_pages_tmp set content_length = %s, chunks_count = %s where id = %s",
         [
             page.content_length,
             page.chunks_count,
@@ -248,7 +248,7 @@ def insert_chunk(
         if match:
             url += match.group(1).lower()
     conn.execute(
-        "insert into docs.postgres_chunks (page_id, chunk_index, sub_chunk_index, content, metadata, embedding) values (%s,%s,%s,%s,%s,%s)",
+        "insert into docs.postgres_chunks_tmp (page_id, chunk_index, sub_chunk_index, content, metadata, embedding) values (%s,%s,%s,%s,%s,%s)",
         [
             page.id,
             chunk.idx,
@@ -319,16 +319,19 @@ def process_chunk(conn: psycopg.Connection, page: Page, chunk: Chunk) -> None:
 
 
 def chunk_files(conn: psycopg.Connection, version: int) -> None:
-    conn.execute("delete from docs.postgres_chunks where page_id IN (select id from docs.postgres_pages where version = %s)", [version])
-    conn.execute("delete from docs.postgres_pages where version = %s", [version])
+    conn.execute("drop table if exists docs.postgres_chunks_tmp")
+    conn.execute("drop table if exists docs.postgres_pages_tmp")
+    conn.execute("create table docs.postgres_pages_tmp (like docs.postgres_pages including all)")
+    conn.execute("create table docs.postgres_chunks_tmp (like docs.postgres_chunks including all)")
+    conn.execute("alter table docs.postgres_chunks_tmp add foreign key (page_id) references docs.postgres_pages_tmp(id)")
     conn.commit()
 
-    header_pattern = re.compile(
-        "^(#{1,3}) .+$"
-    )
+    header_pattern = re.compile('^(#{1,3}) .+$')
+    codeblock_pattern = re.compile('^```')
+
     section_prefix = r'^[A-Za-z0-9.]+\.\s*'
-    # TODO: trim Chapter ##. prefix from headers too, e.g.: Chapter 65. Database Physical Storage
-    codeblock_pattern = re.compile("^```")
+    chapter_prefix = r'^Chapter\s+[0-9]+\.\s*'
+
     for md in MD_DIR.glob("*.md"):
         print(f"chunking {md}...")
         with md.open() as f:
@@ -369,7 +372,9 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
                 header_hases = match.group(1)
                 depth = len(header_hases)
                 header_path = header_path[: (depth - 1)]
-                header = re.sub(section_prefix, '', line.lstrip("#").strip()).strip()
+                header = line.lstrip("#").strip()
+                header = re.sub(section_prefix, '', header).strip()
+                header = re.sub(chapter_prefix, '', header).strip()
                 header_path.append(header)
                 if chunk is not None:
                     process_chunk(conn, page, chunk)
@@ -383,19 +388,26 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
             update_page_stats(conn, page)
             conn.commit()
 
+    with conn.cursor() as cur:
+        cur.execute("drop table docs.postgres_chunks")
+        cur.execute("drop table docs.postgres_pages")
+        cur.execute("rename table docs.postgres_chunks_tmp to docs.postgres_chunks")
+        cur.execute("rename table docs.postgres_pages_tmp to docs.postgres_pages")
+    conn.commit()
+
 
 if __name__ == "__main__":
     update_repo()
     postgres_versions = [
         (17, "REL_17_6"),
-        # (16, "REL_16_9"),
-        # (15, "REL_15_13"),
-        # (14, "REL_14_18")
+        (16, "REL_16_9"),
+        (15, "REL_15_13"),
+        (14, "REL_14_18")
     ]
     db_uri = f"postgresql://{os.environ['PGUSER']}:{os.environ['PGPASSWORD']}@{os.environ['PGHOST']}:{os.environ['PGPORT']}/{os.environ['PGDATABASE']}"
     with psycopg.connect(db_uri) as conn:
         for version, tag in postgres_versions:
             print(f"Building Postgres {version} documentation...")
-            # build_html(version, tag)
-            # build_markdown()
+            build_html(version, tag)
+            build_markdown()
             chunk_files(conn, version)

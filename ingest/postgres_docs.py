@@ -391,9 +391,9 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
     with conn.cursor() as cur:
         cur.execute("drop table docs.postgres_chunks")
         cur.execute("drop table docs.postgres_pages")
-        cur.execute("rename table docs.postgres_chunks_tmp to docs.postgres_chunks")
-        cur.execute("rename table docs.postgres_pages_tmp to docs.postgres_pages")
-    conn.commit()
+        cur.execute("alter table docs.postgres_chunks_tmp rename to postgres_chunks")
+        cur.execute("alter table docs.postgres_pages_tmp rename to postgres_pages")
+        conn.commit()
 
 
 if __name__ == "__main__":

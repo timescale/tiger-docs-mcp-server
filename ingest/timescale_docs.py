@@ -23,7 +23,7 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharac
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 load_dotenv(dotenv_path=os.path.join(script_dir, '..', '.env'))
-schema = os.environ['DB_SCHEMA']
+schema = 'docs'
 
 with open(os.path.join(script_dir, 'timescale_docs_config.toml'), 'rb') as config_fp:
     config = tomllib.load(config_fp)

@@ -1,3 +1,4 @@
+import argparse
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup, element as BeautifulSoupElement
@@ -31,6 +32,7 @@ POSTGRES_BASE_URL = "https://www.postgresql.org/docs"
 ENC = tiktoken.get_encoding("cl100k_base")
 MAX_CHUNK_TOKENS = 7000
 
+
 def update_repo():
     if not POSTGRES_DIR.exists():
         subprocess.run(
@@ -51,7 +53,47 @@ def update_repo():
         )
 
 
-def build_html(version: int, tag: str) -> None:
+def get_version_tag(version: int) -> str:
+    result = subprocess.run(
+        ["git", "tag", "-l"], capture_output=True, text=True, cwd=POSTGRES_DIR
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Failed to get git tags")
+
+    tags = result.stdout.splitlines()
+
+    candidate_tags = []
+
+    for version_type in ["", "RC", "BETA"]:
+        pattern = re.compile(rf"REL_{version}_{version_type}(\d+)$")
+        for tag in tags:
+            match = pattern.match(tag)
+            if match:
+                minor_version = int(match.group(1))
+                candidate_tags.append((minor_version, tag))
+        if len(candidate_tags) > 0:
+            break
+
+    if not candidate_tags:
+        raise ValueError(f"No tags found for Postgres version {version}")
+
+    candidate_tags.sort(key=lambda x: x[0], reverse=True)
+    return candidate_tags[0][1]
+
+
+def checkout_tag(tag: str) -> None:
+    print(f"checking out {tag}...")
+    subprocess.run(
+        f"git checkout {tag}",
+        shell=True,
+        check=True,
+        env=os.environ,
+        text=True,
+        cwd=POSTGRES_DIR,
+    )
+
+
+def build_html() -> None:
     html_stamp = SMGL_DIR / "html-stamp"
 
     # make uses the presence of html-stamp to determine if it needs to
@@ -61,16 +103,6 @@ def build_html(version: int, tag: str) -> None:
 
     if HTML_DIR.exists():
         shutil.rmtree(HTML_DIR)
-
-    print(f"checking out version {version} at {tag}...")
-    subprocess.run(
-        f"git checkout {tag}",
-        shell=True,
-        check=True,
-        env=os.environ,
-        text=True,
-        cwd=POSTGRES_DIR,
-    )
 
     print("configuring postgres build...")
     environ = os.environ.copy()
@@ -105,6 +137,8 @@ def build_markdown() -> None:
     MD_DIR.mkdir()
 
     for html_file in HTML_DIR.glob("*.html"):
+        # Skip files which are more metadata about the docs than actual docs
+        # that people would ask questions about.
         if html_file.name in [
             "legalnotice.html",
             "appendix-obsolete.md",
@@ -148,9 +182,19 @@ def build_markdown() -> None:
             for div in soup.find_all("div", class_=class_name):
                 div.decompose()
 
-        # Convert first h3 to h4 in notice/warning/tip divs
+        # Don't bother including refentry in the transform as we don't chunk
+        # them by headers anyway.
         if not is_refentry:
-            for class_name in ["caution", "important", "notice", "warning", "tip", "note"]:
+            # Convert h3 headings in admonitions to h4 so that we avoid
+            # chunking them.
+            for class_name in [
+                "caution",
+                "important",
+                "notice",
+                "warning",
+                "tip",
+                "note",
+            ]:
                 for div in soup.find_all("div", class_=class_name):
                     if div is None or not isinstance(div, BeautifulSoupElement.Tag):
                         continue
@@ -191,7 +235,7 @@ def insert_page(
     conn: psycopg.Connection,
     page: Page,
 ) -> None:
-    print('inserting page', page.filename, page.url)
+    print("inserting page", page.filename, page.url)
     result = conn.execute(
         "insert into docs.postgres_pages_tmp (version, url, domain, filename, content_length, chunks_count) values (%s,%s,%s,%s,%s,%s) RETURNING id",
         [
@@ -212,7 +256,8 @@ def update_page_stats(
     conn: psycopg.Connection,
     page: Page,
 ) -> None:
-    conn.execute("""
+    conn.execute(
+        """
         update docs.postgres_pages_tmp p
         set
             content_length = coalesce(chunks_stats.total_length, 0),
@@ -223,10 +268,13 @@ def update_page_stats(
                 sum(char_length(content)) as total_length,
                 count(*) as chunks_count
             from docs.postgres_chunks_tmp
+            where page_id = %s
             group by page_id
         ) as chunks_stats
-        where p.id = chunks_stats.page_id
-    """, [page.id, page.id])
+        where p.id = chunks_stats.page_id and p.id = %s
+    """,
+        [page.id, page.id],
+    )
 
 
 def insert_chunk(
@@ -235,20 +283,26 @@ def insert_chunk(
     chunk: Chunk,
 ) -> None:
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
-    content = ''
+    content = ""
     for i in range(len(chunk.header_path)):
-        content += ''.join(['#' for _ in range(i + 1)]) + ' ' + chunk.header_path[i] + '\n\n'
+        content += (
+            "".join(["#" for _ in range(i + 1)]) + " " + chunk.header_path[i] + "\n\n"
+        )
     content += chunk.content
-    embedding = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=chunk.content,
-    ).data[0].embedding
+    embedding = (
+        client.embeddings.create(
+            model="text-embedding-3-small",
+            input=chunk.content,
+        )
+        .data[0]
+        .embedding
+    )
     content = chunk.content
     # token_count, embedding = embed(header_path, content)
     print(f"header: {chunk.header}")
     url = page.url
     if len(chunk.header_path) > 1:
-        pattern = r'\((#\S+)\)'
+        pattern = r"\((#\S+)\)"
         match = re.search(pattern, chunk.header_path[-1])
         if match:
             url += match.group(1).lower()
@@ -259,12 +313,14 @@ def insert_chunk(
             chunk.idx,
             chunk.subindex,
             chunk.content,
-            json.dumps({
-                "header": chunk.header,
-                "header_path": chunk.header_path,
-                "source_url": url,
-                "token_count": chunk.token_count,
-            }),
+            json.dumps(
+                {
+                    "header": chunk.header,
+                    "header_path": chunk.header_path,
+                    "source_url": url,
+                    "token_count": chunk.token_count,
+                }
+            ),
             embedding,
         ],
     )
@@ -286,14 +342,16 @@ def split_chunk(chunk: Chunk) -> list[Chunk]:
             break
         decoded = ENC.decode(chunk_ids)
         if decoded:
-            subchunks.append(Chunk(
-                idx=chunk.idx,
-                header=chunk.header,
-                header_path=chunk.header_path,
-                content=decoded,
-                token_count=len(chunk_ids),
-                subindex=subindex,
-            ))
+            subchunks.append(
+                Chunk(
+                    idx=chunk.idx,
+                    header=chunk.header,
+                    header_path=chunk.header_path,
+                    content=decoded,
+                    token_count=len(chunk_ids),
+                    subindex=subindex,
+                )
+            )
             subindex += 1
         if cur_idx == len(input_ids):
             break
@@ -302,7 +360,6 @@ def split_chunk(chunk: Chunk) -> list[Chunk]:
 
 
 def process_chunk(conn: psycopg.Connection, page: Page, chunk: Chunk) -> None:
-
     if chunk.content == "":  # discard empty chunks
         return
 
@@ -313,7 +370,9 @@ def process_chunk(conn: psycopg.Connection, page: Page, chunk: Chunk) -> None:
     chunks = [chunk]
 
     if chunk.token_count > MAX_CHUNK_TOKENS:
-        print(f"Chunk {chunk.header} too large ({chunk.token_count} tokens), splitting...")
+        print(
+            f"Chunk {chunk.header} too large ({chunk.token_count} tokens), splitting..."
+        )
         chunks = split_chunk(chunk)
 
     for chunk in chunks:
@@ -324,16 +383,30 @@ def process_chunk(conn: psycopg.Connection, page: Page, chunk: Chunk) -> None:
 def chunk_files(conn: psycopg.Connection, version: int) -> None:
     conn.execute("drop table if exists docs.postgres_chunks_tmp")
     conn.execute("drop table if exists docs.postgres_pages_tmp")
-    conn.execute("create table docs.postgres_pages_tmp (like docs.postgres_pages including all)")
-    conn.execute("create table docs.postgres_chunks_tmp (like docs.postgres_chunks including all)")
-    conn.execute("alter table docs.postgres_chunks_tmp add foreign key (page_id) references docs.postgres_pages_tmp(id)")
+    conn.execute(
+        "create table docs.postgres_pages_tmp (like docs.postgres_pages including all)"
+    )
+    conn.execute(
+        "insert into docs.postgres_pages_tmp select * from docs.postgres_pages where version != %s",
+        [version],
+    )
+    conn.execute(
+        "create table docs.postgres_chunks_tmp (like docs.postgres_chunks including all)"
+    )
+    conn.execute(
+        "insert into docs.postgres_chunks_tmp select * from docs.postgres_chunks c inner join docs.postgres_pages p on c.page_id = p.id where p.version != %s",
+        [version],
+    )
+    conn.execute(
+        "alter table docs.postgres_chunks_tmp add foreign key (page_id) references docs.postgres_pages_tmp(id)"
+    )
     conn.commit()
 
-    header_pattern = re.compile('^(#{1,3}) .+$')
-    codeblock_pattern = re.compile('^```')
+    header_pattern = re.compile("^(#{1,3}) .+$")
+    codeblock_pattern = re.compile("^```")
 
-    section_prefix = r'^[A-Za-z0-9.]+\.\s*'
-    chapter_prefix = r'^Chapter\s+[0-9]+\.\s*'
+    section_prefix = r"^[A-Za-z0-9.]+\.\s*"
+    chapter_prefix = r"^Chapter\s+[0-9]+\.\s*"
 
     for md in MD_DIR.glob("*.md"):
         print(f"chunking {md}...")
@@ -376,8 +449,8 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
                 depth = len(header_hases)
                 header_path = header_path[: (depth - 1)]
                 header = line.lstrip("#").strip()
-                header = re.sub(section_prefix, '', header).strip()
-                header = re.sub(chapter_prefix, '', header).strip()
+                header = re.sub(section_prefix, "", header).strip()
+                header = re.sub(chapter_prefix, "", header).strip()
                 header_path.append(header)
                 if chunk is not None:
                     process_chunk(conn, page, chunk)
@@ -399,18 +472,23 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
         conn.commit()
 
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(
+        description="Ingest Postgres documentation into the database."
+    )
+    parser.add_argument("version", type=int, help="Postgres version to ingest")
+    args = parser.parse_args()
+    version = args.version
     update_repo()
-    postgres_versions = [
-        (17, "REL_17_6"),
-        (16, "REL_16_9"),
-        (15, "REL_15_13"),
-        (14, "REL_14_18")
-    ]
+    tag = get_version_tag(version)
     db_uri = f"postgresql://{os.environ['PGUSER']}:{os.environ['PGPASSWORD']}@{os.environ['PGHOST']}:{os.environ['PGPORT']}/{os.environ['PGDATABASE']}"
     with psycopg.connect(db_uri) as conn:
-        for version, tag in postgres_versions:
-            print(f"Building Postgres {version} documentation...")
-            build_html(version, tag)
-            build_markdown()
-            chunk_files(conn, version)
+        print(f"Building Postgres {version} ({tag}) documentation...")
+        checkout_tag(tag)
+        build_html()
+        build_markdown()
+        chunk_files(conn, version)
+
+
+if __name__ == "__main__":
+    main()

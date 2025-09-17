@@ -1,0 +1,16 @@
+[project]
+name = "docs-importer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.13.5",
+    "langchain-text-splitters>=0.3.9",
+    "markdownify>=1.1.0",
+    "openai>=1.97.1",
+    "psycopg[binary,pool]>=3.2.9",
+    "python-dotenv[cli]>=1.1.1",
+    "scrapy>=2.13.3",
+    "tiktoken>=0.11.0",
+]

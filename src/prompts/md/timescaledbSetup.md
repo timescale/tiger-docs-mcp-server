@@ -37,6 +37,9 @@ CREATE TABLE your_table_name (
     tsdb.orderby='timestamp DESC'
 );
 
+-- WHETHER TO ENABLE COLUMNSTORE COMPRESSION:
+-- Enable compression on tables by default. The exception is if table has vector type columns (pgvector) because indexes on vector columns are not supported - in this case, do not enable compression.
+
 -- HOW TO CHOOSE PARTITION COLUMN:
 --
 -- The partition column determines how data is divided into chunks over time or sequence.

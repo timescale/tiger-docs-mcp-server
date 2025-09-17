@@ -175,8 +175,6 @@ class Page:
     url: str
     domain: str
     filename: str
-    content_length: int = 0
-    chunks_count: int = 0
 
 
 @dataclass
@@ -214,14 +212,21 @@ def update_page_stats(
     conn: psycopg.Connection,
     page: Page,
 ) -> None:
-    conn.execute(
-        "update docs.postgres_pages_tmp set content_length = %s, chunks_count = %s where id = %s",
-        [
-            page.content_length,
-            page.chunks_count,
-            page.id,
-        ],
-    )
+    conn.execute("""
+        update docs.postgres_pages_tmp p
+        set
+            content_length = coalesce(chunks_stats.total_length, 0),
+            chunks_count = coalesce(chunks_stats.chunks_count, 0)
+        from (
+            select
+                page_id,
+                sum(char_length(content)) as total_length,
+                count(*) as chunks_count
+            from docs.postgres_chunks_tmp
+            group by page_id
+        ) as chunks_stats
+        where p.id = chunks_stats.page_id
+    """, [page.id, page.id])
 
 
 def insert_chunk(
@@ -297,8 +302,6 @@ def split_chunk(chunk: Chunk) -> list[Chunk]:
 
 
 def process_chunk(conn: psycopg.Connection, page: Page, chunk: Chunk) -> None:
-    page.content_length += len(chunk.content)
-    page.chunks_count += 1
 
     if chunk.content == "":  # discard empty chunks
         return

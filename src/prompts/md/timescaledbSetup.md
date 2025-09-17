@@ -5,11 +5,18 @@ description: "Step-by-step instructions for designing table schemas and setting 
 
 # TimescaleDB Complete Setup Guide for AI Coding Assistants
 
-You are tasked with setting up a complete TimescaleDB time-series database solution. This guide provides step-by-step instructions for creating hypertables, configuring compression, setting up retention policies, and implementing continuous aggregates with their associated policies. Adapt the schema and configurations to your specific use case.
+You are tasked with setting up a complete TimescaleDB database solution for insert-heavy data patterns. This guide provides step-by-step instructions for creating hypertables, configuring compression, setting up retention policies, and implementing continuous aggregates with their associated policies. Adapt the schema and configurations to your specific use case.
+
+TimescaleDB hypertables are optimized for insert-heavy data patterns where data is inserted but rarely changed, including:
+- **Time-series data** (sensors, metrics, system monitoring)
+- **Event logs** (user events, audit trails, application logs)
+- **Transaction records** (orders, payments, financial transactions)
+- **Sequential data** (records with auto-incrementing IDs and timestamps)
+- **Append-only datasets** (immutable records, historical data)
 
 ## Step 1: Create Base Table and Hypertable
 
-Create a table schema appropriate for your time-series data, then convert it to a hypertable:
+Create a table schema appropriate for your insert-heavy data pattern, then convert it to a hypertable:
 
 ```sql
 -- Create hypertable with compression settings directly using WITH clause
@@ -32,21 +39,20 @@ CREATE TABLE your_table_name (
 
 -- HOW TO CHOOSE PARTITION COLUMN:
 --
--- The partition column determines how data is divided into chunks over time.
--- This is almost always a timestamp column in time-series workloads.
+-- The partition column determines how data is divided into chunks over time or sequence.
+-- For insert-heavy data patterns, choose based on your data characteristics:
 --
 -- Requirements:
 -- - Must be a time-based column (TIMESTAMP, TIMESTAMPTZ, DATE) or integer (INT, BIGINT)
--- - Should represent when the event actually occurred or sequential ordering
+-- - Should represent when the event occurred, record was created, or sequential ordering
 -- - Must have good temporal/sequential distribution (not all the same value)
 --
--- Common patterns:
--- - 'timestamp' - when the measurement/event happened
--- - 'created_at' - when the record was created
--- - 'event_time' - when the business event occurred
--- - 'ingested_at' - when data entered the system (less ideal)
--- - 'id' - autoincrement integer key (for sequential data without timestamps)
--- - 'sequence_number' - monotonically increasing integer
+-- Common patterns by data type:
+-- TIME-SERIES DATA: 'timestamp', 'event_time', 'measured_at'
+-- EVENT LOGS: 'event_time', 'created_at', 'logged_at'
+-- TRANSACTION RECORDS: 'created_at', 'transaction_time', 'processed_at'
+-- SEQUENTIAL DATA: 'id' (auto-increment), 'sequence_number', 'created_at'
+-- APPEND-ONLY DATASETS: 'created_at', 'inserted_at', 'id'
 --
 -- AVOID using 'updated_at' as partition column:
 -- - Records can be updated out of time order
@@ -187,8 +193,8 @@ CREATE INDEX idx_category_timestamp ON your_table_name (category, timestamp DESC
 -- 3. Use unique constraints for business logic uniqueness (must include partition column):
 --    ALTER TABLE your_table_name ADD CONSTRAINT unique_entity_time UNIQUE (entity_id, timestamp);
 -- 
--- 4. No primary key (often acceptable for time-series data):
---    -- Many time-series use cases don't require strict uniqueness constraints
+-- 4. No primary key (often acceptable for time-series/insert-heavy data):
+--    -- Many insert-heavy use cases don't require strict uniqueness constraints
 ```
 
 ## Step 2: Configure Compression Policy
@@ -506,7 +512,7 @@ WHERE hypertable_name = 'your_table_name';
 - **Query Performance**: Use continuous aggregates for common queries spanning lots of historical data, often used to support user-facing dashboards
 - **Memory Usage**: Run `timescaledb-tune` if self-hosting (automatically configured on cloud)
 
-This configuration provides a robust foundation for time-series workloads with automatic maintenance, optimal query performance, and efficient storage management.
+This configuration provides a robust foundation for insert-heavy/analytical workloads with automatic maintenance, optimal query performance, and efficient storage management.
 
 ## Schema Design Best Practices
 
@@ -561,7 +567,7 @@ CREATE TABLE events (id bigint generated always as identity primary key, ...);
 **💡 Use `bigint` for ID columns by default** - Even if you don't expect billions of records:
 - `bigint` has no performance penalty over `int` 
 - Prevents future migration pain when you exceed 2.1 billion rows
-- Time-series data can accumulate very quickly (millions of IoT readings per day)
+- Time-series and insert-heavy data can accumulate very quickly (millions of IoT readings per day)
 
 **💡 Use `double precision` for floating-point values by default** - Instead of `real` or `float`:
 - `double precision` provides 15-17 decimal digits vs 6-7 for `real`

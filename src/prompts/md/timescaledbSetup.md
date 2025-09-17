@@ -18,6 +18,8 @@ TimescaleDB hypertables are optimized for insert-heavy data patterns where data 
 
 Create a table schema appropriate for your insert-heavy data pattern, then convert it to a hypertable:
 
+
+
 ```sql
 -- Create hypertable with compression settings directly using WITH clause
 -- IMPORTANT: Choose segment_by column carefully (see guidance below)
@@ -36,206 +38,215 @@ CREATE TABLE your_table_name (
     tsdb.segmentby='entity_id',  -- Usually prefer single column - see selection guide below
     tsdb.orderby='timestamp DESC'
 );
+```
 
--- WHETHER TO ENABLE COLUMNSTORE COMPRESSION:
--- Enable compression on tables by default. The exception is if table has vector type columns (pgvector) because indexes on vector columns are not supported - in this case, do not enable compression.
+### Whether to Enable Columnstore Compression
 
--- HOW TO CHOOSE PARTITION COLUMN:
---
--- The partition column determines how data is divided into chunks over time or sequence.
--- For insert-heavy data patterns, choose based on your data characteristics:
---
--- Requirements:
--- - Must be a time-based column (TIMESTAMP, TIMESTAMPTZ, DATE) or integer (INT, BIGINT)
--- - Should represent when the event occurred, record was created, or sequential ordering
--- - Must have good temporal/sequential distribution (not all the same value)
---
--- Common patterns by data type:
--- TIME-SERIES DATA: 'timestamp', 'event_time', 'measured_at'
--- EVENT LOGS: 'event_time', 'created_at', 'logged_at'
--- TRANSACTION RECORDS: 'created_at', 'transaction_time', 'processed_at'
--- SEQUENTIAL DATA: 'id' (auto-increment), 'sequence_number', 'created_at'
--- APPEND-ONLY DATASETS: 'created_at', 'inserted_at', 'id'
---
--- AVOID using 'updated_at' as partition column:
--- - Records can be updated out of time order
--- - Creates uneven chunk distribution
--- - Breaks time-based query optimization
---
--- Use 'updated_at' only if:
--- - It's your primary query dimension
--- - You rarely query by creation time
--- - Update patterns are predictable and time-ordered
---
--- HOW TO CHOOSE SEGMENT_BY COLUMN:
--- 
--- The segment_by column determines how data is grouped during compression. 
--- PREFER SINGLE COLUMN - multi-column segment_by is rarely optimal.
---
--- Multi-column segment_by can work when columns are highly correlated 
--- (e.g., metric_name + metric_type where they always appear together),
--- but requires careful analysis of row density patterns.
---
--- Choose a column that:
--- 1. Is frequently used in WHERE clauses (your most common filter)
--- 2. Has good row density per segment (>100 rows per segment_by value per chunk)
--- 3. Represents the primary way you partition/group your data logically
--- 4. Balances compression ratio with query performance
---
--- EXAMPLES BY USE CASE:
--- IoT/Sensors: 'device_id'
--- Finance/Trading: 'symbol' 
--- Application Metrics: 
--- - 'service_name'
--- - 'service_name + metric_type' (if sufficient row density)
--- - 'metric_name + metric_type' (if sufficient row density)
--- User Analytics: 'user_id' if sufficient row density, otherwise 'session_id'
--- E-commerce: 'product_id' if sufficient row density, otherwise 'category_id'
---
--- ROW DENSITY GUIDELINES:
--- - Target >100 rows per segment_by value within each chunk
--- - Poor compression: segment_by values with <10 rows per chunk
--- - Good compression: segment_by values with 100-10,000+ rows per chunk
--- - If your entity_id only has 5-10 rows per chunk, choose a less granular column
---
--- QUERY PATTERN ANALYSIS:
--- Your most common query pattern should drive the choice:
--- SELECT * FROM table WHERE entity_id = 'X' AND timestamp > ...
--- ↳ Good segment_by: 'entity_id' (if entity_id has >100 rows per chunk)
---
--- BAD CHOICES FOR SEGMENT_BY:
--- - Timestamp columns (already time-partitioned)
--- - Unique identifiers (transaction_id, uuid fields)
--- - Columns with low row density (<100 rows per value per chunk)
--- - Columns rarely used in filtering
--- - Multiple columns (creates too many small segments)
---
--- HOW TO CHOOSE ORDER_BY COLUMN:
---
--- The order_by column should create a natural time-series progression when
--- combined with segment_by. This ensures adjacent rows have similar values,
--- which compress well.
---
--- The combination (segment_by, order_by) should form a sequence where
--- values change gradually between consecutive rows.
---
--- EXAMPLES:
--- - segment_by='device_id', order_by='timestamp DESC'
---   ↳ Forms natural progression: device readings over time
--- - segment_by='symbol', order_by='timestamp DESC' 
---   ↳ Forms natural progression: stock prices over time
--- - segment_by='user_id', order_by='session_timestamp DESC'
---   ↳ Forms natural progression: user events over time
---
--- Most common pattern: 'timestamp DESC' (newest data first)
--- This works well because time-series data naturally has temporal correlation.
---
--- Alternative patterns when timestamp isn't the natural ordering:
--- - 'sequence_id DESC' for event streams with sequence numbers
--- - 'timestamp DESC, event_order DESC' for sub-ordering within time
---
--- IMPORTANT: When a column can't be used in segment_by due to low row density,
--- consider prepending it to order_by to preserve natural progression:
--- 
--- Example: metric_name has only 20 rows per chunk (too low for segment_by)
--- - segment_by='service_name' (has >100 rows per chunk)
--- - order_by='metric_name, timestamp DESC'
--- 
--- This creates natural progression within each service: all temperature readings
--- together, then all pressure readings, etc. Values are more similar when
--- grouped by metric type, improving compression.
---
--- ADVANCED: Append columns that benefit from min/max indexing for query optimization:
--- After the natural progression columns, you can append additional columns that:
--- - Are frequently used in WHERE clauses for filtering
--- - Have some correlation with the main progression
--- - Can help exclude compressed chunks during queries
---
--- Example: 'created_at DESC, updated_at DESC'
--- - created_at provides the main natural progression
--- - updated_at is appended because it often correlates and is used for filtering
--- - TimescaleDB tracks min/max of updated_at per compressed chunk
--- - Queries like "WHERE updated_at > '2024-01-01'" can exclude entire compressed batches.
---
--- Other examples:
--- - 'timestamp DESC, price DESC' (for financial data where price filters are common)
--- - 'timestamp DESC, severity DESC' (for logs where severity filtering is frequent)
---
--- BAD CHOICES FOR ORDER_BY:
--- - Random columns that break natural progression
--- - Columns that create high variance between adjacent rows
--- - Columns unrelated to the segment_by grouping
+**Enable compression by default** for insert-heavy data patterns. The exception is if your table has **vector type columns (pgvector)** because indexes on vector columns are not supported with columnstore compression - in this case, do not enable compression.
 
--- Optionally set chunk time interval (default is 7 days)
--- Adjust based on data volume: 1 hour to 1 day for high frequency, 1 day to 1 week for medium, 1 week to 1 month for low frequency
+For tables with vector columns, create the hypertable without compression settings (tsdb.enable_columnstore=false, no segment_by or order_by columns) and rely on time-based partitioning benefits only.
+
+### How to Choose Partition Column
+
+The partition column determines how data is divided into chunks over time or sequence. For insert-heavy data patterns, choose based on your data characteristics:
+
+**Requirements:**
+- Must be a time-based column (TIMESTAMP, TIMESTAMPTZ, DATE) or integer (INT, BIGINT)
+- Should represent when the event occurred, record was created, or sequential ordering  
+- Must have good temporal/sequential distribution (not all the same value)
+
+**Common patterns by data type:**
+- **TIME-SERIES DATA**: `timestamp` (when measurement occurred), `event_time`, `measured_at`
+- **EVENT LOGS**: `event_time` (when business event occurred), `created_at` (when record was created), `logged_at`
+- **TRANSACTION RECORDS**: `created_at` (when record was created), `transaction_time`, `processed_at`
+- **SEQUENTIAL DATA**: `id` (auto-increment, use when there is no timestamp), `sequence_number`, `created_at`
+- **APPEND-ONLY DATASETS**: `created_at`, `inserted_at`, `id`
+
+**⚠️ Less ideal choices:**
+- `ingested_at` - when data entered the system (use only if it's your primary query dimension)
+
+**Avoid using `updated_at` as partition column:**
+- Records can be updated out of time order
+- Creates uneven chunk distribution
+- Breaks time-based query optimization
+
+**Use `updated_at` only if:**
+- It's your primary query dimension
+- You rarely query by creation time
+- Update patterns are predictable and time-ordered
+
+### How to Choose Segment_By Column
+
+The segment_by column determines how data is grouped during compression. **PREFER SINGLE COLUMN** - multi-column segment_by is rarely optimal.
+
+Multi-column segment_by can work when columns are highly correlated (e.g., metric_name + metric_type where they always appear together), but requires careful analysis of row density patterns.
+
+**Choose a column that:**
+1. Is frequently used in WHERE clauses (your most common filter)
+2. Has good row density per segment (>100 rows per segment_by value per chunk)
+3. Represents the primary way you partition/group your data logically
+4. Balances compression ratio with query performance
+
+**Examples by use case:**
+- **IoT/Sensors**: `device_id`
+- **Finance/Trading**: `symbol`
+- **Application Metrics**: `service_name`, `service_name + metric_type` (if sufficient row density), `metric_name + metric_type` (if sufficient row density)
+- **User Analytics**: `user_id` if sufficient row density, otherwise `session_id`
+- **E-commerce**: `product_id` if sufficient row density, otherwise `category_id`
+
+**Row density guidelines:**
+- Target >100 rows per segment_by value within each chunk
+- Poor compression: segment_by values with <10 rows per chunk
+- Good compression: segment_by values with 100-10,000+ rows per chunk
+- If your entity_id only has 5-10 rows per chunk, choose a less granular column
+
+**Query pattern analysis:**
+Your most common query pattern should drive the choice:
+```sql
+SELECT * FROM table WHERE entity_id = 'X' AND timestamp > ...
+```
+↳ Good segment_by: `entity_id` (if entity_id has >100 rows per chunk)
+
+**Bad choices for segment_by:**
+- Timestamp columns (already time-partitioned)
+- Unique identifiers (transaction_id, uuid fields)
+- Columns with low row density (<100 rows per value per chunk)
+- Columns rarely used in filtering
+- Multiple columns (creates too many small segments)
+
+### How to Choose Order_By Column
+
+The order_by column should create a natural time-series progression when combined with segment_by. This ensures adjacent rows have similar values, which compress well.
+
+The combination (segment_by, order_by) should form a sequence where values change gradually between consecutive rows.
+
+**Examples:**
+- `segment_by='device_id', order_by='timestamp DESC'` ↳ Forms natural progression: device readings over time
+- `segment_by='symbol', order_by='timestamp DESC'` ↳ Forms natural progression: stock prices over time  
+- `segment_by='user_id', order_by='session_timestamp DESC'` ↳ Forms natural progression: user events over time
+
+**Most common pattern:** `timestamp DESC` (newest data first). This works well because time-series data naturally has temporal correlation.
+
+**Alternative patterns when timestamp isn't the natural ordering:**
+- `sequence_id DESC` for event streams with sequence numbers
+- `timestamp DESC, event_order DESC` for sub-ordering within time
+
+**Important:** When a column can't be used in segment_by due to low row density, consider prepending it to order_by to preserve natural progression:
+
+Example: metric_name has only 20 rows per chunk (too low for segment_by)
+- `segment_by='service_name'` (has >100 rows per chunk)  
+- `order_by='metric_name, timestamp DESC'`
+
+This creates natural progression within each service: all temperature readings together, then all pressure readings, etc. Values are more similar when grouped by metric type, improving compression.
+
+**Advanced:** Append columns that benefit from min/max indexing for query optimization. After the natural progression columns, you can append additional columns that:
+- Are frequently used in WHERE clauses for filtering
+- Have some correlation with the main progression  
+- Can help exclude compressed chunks during queries
+
+Example: `created_at DESC, updated_at DESC`
+- created_at provides the main natural progression
+- updated_at is appended because it often correlates and is used for filtering
+- TimescaleDB tracks min/max of updated_at per compressed chunk
+- Queries like "WHERE updated_at > '2024-01-01'" can exclude entire compressed batches
+
+Other examples:
+- `timestamp DESC, price DESC` (for financial data where price filters are common)
+- `timestamp DESC, severity DESC` (for logs where severity filtering is frequent)
+
+**Bad choices for order_by:**
+- Random columns that break natural progression
+- Columns that create high variance between adjacent rows
+- Columns unrelated to the segment_by grouping
+
+**NOTE:** You can also configure compression later using ALTER TABLE:
+```sql
+ALTER TABLE your_table_name SET (
+    timescaledb.enable_columnstore,
+    timescaledb.segmentby = 'entity_id, category',
+    timescaledb.orderby = 'timestamp DESC'
+);
+```
+
+### Configure Chunk Time Interval
+
+Optionally adjust the chunk time interval based on your data volume. The default is 7 days. If you have no information about the data volume, use the default or ask the user.
+
+**Adjust based on data volume:**
+- 1 hour to 1 day for high frequency
+- 1 day to 1 week for medium frequency  
+- 1 week to 1 month for low frequency
+
+```sql
 SELECT set_chunk_time_interval('your_table_name', INTERVAL '1 day');
+```
 
--- Note: You can also configure compression later using ALTER TABLE:
--- ALTER TABLE your_table_name SET (
---     timescaledb.enable_columnstore,
---     timescaledb.segmentby = 'entity_id, category',
---     timescaledb.orderby = 'timestamp DESC'
--- );
+### Create Indexes
 
--- Create indexes for your common query patterns
+Create indexes for your common query patterns:
+
+```sql
 CREATE INDEX idx_entity_timestamp ON your_table_name (entity_id, timestamp DESC);
 CREATE INDEX idx_category_timestamp ON your_table_name (category, timestamp DESC);
-
--- IMPORTANT: Primary Key Considerations for Hypertables
--- Any primary key or unique index MUST include the partitioning column.
--- Single-column primary keys (like 'id SERIAL PRIMARY KEY') don't work well with hypertables
--- UNLESS the primary key column is also the partitioning column.
--- 
--- Options for primary keys:
--- 1. If using timestamp partitioning, use composite primary key:
---    ALTER TABLE your_table_name ADD PRIMARY KEY (entity_id, timestamp);
--- 
--- 2. If using integer partitioning, single-column PK works:
---    -- Example: CREATE TABLE ... (id SERIAL PRIMARY KEY, ...) WITH (tsdb.hypertable, tsdb.partition_column='id');
--- 
--- 3. Use unique constraints for business logic uniqueness (must include partition column):
---    ALTER TABLE your_table_name ADD CONSTRAINT unique_entity_time UNIQUE (entity_id, timestamp);
--- 
--- 4. No primary key (often acceptable for time-series/insert-heavy data):
---    -- Many insert-heavy use cases don't require strict uniqueness constraints
 ```
+
+#### Primary Key Considerations for Hypertables
+
+Any primary key or unique index **MUST include the partitioning column**. Single-column primary keys (like `id SERIAL PRIMARY KEY`) don't work well with hypertables UNLESS the primary key column is also the partitioning column.
+
+**Options for primary keys:**
+
+1. **If using timestamp partitioning, use composite primary key:**
+   ```sql
+   ALTER TABLE your_table_name ADD PRIMARY KEY (entity_id, timestamp);
+   ```
+
+2. **If using integer partitioning, single-column PK works:**
+   ```sql
+   -- Example: CREATE TABLE ... (id SERIAL PRIMARY KEY, ...) WITH (tsdb.hypertable, tsdb.partition_column='id');
+   ```
+
+3. **Use unique constraints for business logic uniqueness (must include partition column):**
+   ```sql
+   ALTER TABLE your_table_name ADD CONSTRAINT unique_entity_time UNIQUE (entity_id, timestamp);
+   ```
+
+4. **No primary key (often acceptable for time-series/insert-heavy data):**
+   Many insert-heavy use cases don't require strict uniqueness constraints
 
 ## Step 2: Configure Compression Policy
 
-Add automatic compression policy (compression settings were configured in Step 1):
+Add automatic compression policy (compression settings were configured in Step 1).
+
+**Compress when BOTH criteria are typically met:**
+- Most data will not be updated again (some updates/backfill is ok but not regular)
+- You no longer need fine-grained B-tree indexes for queries (less common criterion)
+
+**Important:** Adjust the `after` interval based on your update patterns so that most data is updated before it is converted to columnstore.
 
 ```sql
--- Add compression policy - compress when BOTH criteria are typically met:
--- (a) Most data will not be updated again (some updates/backfill is ok but not regular)
--- (b) You no longer need fine-grained B-tree indexes for queries (less common criterion)
--- 
--- You should include a comment with the following SQL to let developers know to adjust 'after'
--- to be older than the period of most updates:
---
---Adjust 'after' interval based on your update patterns so that most data is updated
---before it is converted to columnstore.
+-- Adjust 'after' interval based on your update patterns
 SELECT add_columnstore_policy('your_table_name', after => INTERVAL '1 day');
 ```
 
 ## Step 3: Set Up Data Retention Policy
 
-Configure automatic data retention based on your specific requirements:
+Configure automatic data retention based on your specific requirements.
+
+**Important:** Don't guess retention periods - either:
+1. Look for user specifications/requirements in the project
+2. Ask the user about their data retention needs
+
+If you aren't sure of the data retention period, include the `add_retention_policy` call but you **MUST comment it out**.
+
+**Common patterns (for reference only):**
+- **High-frequency IoT data**: 30-90 days to 1 year
+- **Financial data**: 7+ years for regulatory compliance  
+- **Application metrics**: 30-180 days
+- **User analytics**: 1-2 years
+- **Log data**: 30-90 days
 
 ```sql
--- IMPORTANT: Don't guess retention periods - either:
--- 1. Look for user specifications/requirements in the project
--- 2. Ask the user about their data retention needs
---
--- If you aren't sure of the data retention period than 
--- include the add_data_retention_policy call but you MUST comment it out.
--- 
--- Common patterns (for reference only):
--- - High-frequency IoT data: 30-90 days to 1 year
--- - Financial data: 7+ years for regulatory compliance  
--- - Application metrics: 30-180 days
--- - User analytics: 1-2 years
--- - Log data: 30-90 days
---
 -- Example (replace with actual requirements):
 SELECT add_retention_policy('your_table_name', INTERVAL '365 days');
 ```
@@ -245,8 +256,10 @@ SELECT add_retention_policy('your_table_name', INTERVAL '365 days');
 Set up continuous aggregates for different time granularities:
 
 ### Short-term Aggregates (Minutes/Hours)
+
+For high-frequency data (IoT sensors, trading data, application metrics):
+
 ```sql
--- For high-frequency data (IoT sensors, trading data, application metrics)
 CREATE MATERIALIZED VIEW your_table_hourly
 WITH (timescaledb.continuous) AS
 SELECT 
@@ -265,8 +278,10 @@ GROUP BY bucket, entity_id, category;
 ```
 
 ### Long-term Aggregates (Days/Weeks)
+
+For trend analysis and reporting:
+
 ```sql
--- For trend analysis and reporting
 CREATE MATERIALIZED VIEW your_table_daily
 WITH (timescaledb.continuous) AS
 SELECT 
@@ -288,23 +303,30 @@ GROUP BY bucket, entity_id, category;
 
 ## Step 5: Configure Continuous Aggregate Policies
 
-Set up refresh policies based on your data freshness requirements:
+Set up refresh policies based on your data freshness requirements.
+
+**Most common case:** No start_offset (refreshes all data as needed)
+
+**Hourly aggregates** - refresh frequently for near real-time dashboards:
 
 ```sql
--- Hourly aggregates - refresh frequently for near real-time dashboards
--- Most common case: no start_offset (refreshes all data as needed)
 SELECT add_continuous_aggregate_policy('your_table_hourly',
     end_offset => INTERVAL '15 minutes',     -- lag from real-time
     schedule_interval => INTERVAL '15 minutes'); -- how often to refresh
+```
 
--- Daily aggregates - refresh less frequently for reports
+**Daily aggregates** - refresh less frequently for reports:
+
+```sql
 SELECT add_continuous_aggregate_policy('your_table_daily',
     end_offset => INTERVAL '1 hour',
     schedule_interval => INTERVAL '1 hour');
+```
 
--- Alternative: Use start_offset only if you don't care about refreshing old data
--- Example: Only refresh the last 7 days for a high-volume system where users don't care about query result accuracy
--- on older data.
+**Alternative:** Use start_offset only if you don't care about refreshing old data. Example: Only refresh the last 7 days for a high-volume system where users don't care about query result accuracy on older data:
+
+```sql
+-- use a start_offset if you don't care about refreshing old data
 -- SELECT add_continuous_aggregate_policy('your_table_hourly',
 --     start_offset => INTERVAL '7 days',    -- only refresh last 7 days
 --     end_offset => INTERVAL '15 minutes',
@@ -313,20 +335,21 @@ SELECT add_continuous_aggregate_policy('your_table_daily',
 
 ## Step 6: Configure Real-Time Aggregation (Optional)
 
-Enable real-time aggregation to include the most recent raw data in continuous aggregate queries:
+Real-time aggregates combine materialized data with recent raw data at query time. This provides up-to-date results but with slightly higher query cost.
+
+**Note:** In TimescaleDB v2.13+, real-time aggregates are **DISABLED by default**. In earlier versions, they were ENABLED by default.
+
+**Enable real-time aggregation** for more current results:
 
 ```sql
--- Real-time aggregates combine materialized data with recent raw data at query time
--- This provides up-to-date results but with slightly higher query cost
--- 
--- Note: In TimescaleDB v2.13+, real-time aggregates are DISABLED by default
--- In earlier versions, they were ENABLED by default
-
--- Enable real-time aggregation for more current results:
 ALTER MATERIALIZED VIEW your_table_hourly SET (timescaledb.materialized_only = false);
 ALTER MATERIALIZED VIEW your_table_daily SET (timescaledb.materialized_only = false);
+```
 
--- Disable real-time aggregation (materialized data only) for better performance:
+**Disable real-time aggregation** (materialized data only) for better query performance, at the
+cost of not seeing the aggregates for the most recent data:
+
+```sql
 -- ALTER MATERIALIZED VIEW your_table_hourly SET (timescaledb.materialized_only = true);
 -- ALTER MATERIALIZED VIEW your_table_daily SET (timescaledb.materialized_only = true);
 ```
@@ -344,19 +367,26 @@ ALTER MATERIALIZED VIEW your_table_daily SET (timescaledb.materialized_only = fa
 
 ## Step 7: Enable Compression on Continuous Aggregates
 
-Compress aggregated data for storage efficiency:
+Compress aggregated data for storage efficiency.
+
+**Rule of thumb:**
+- `segment_by` = all GROUP BY columns except time_bucket
+- `order_by` = time_bucket DESC
+
+**Compress hourly aggregates:**
 
 ```sql
--- Compress hourly aggregates
--- Rule of thumb: segment_by = all GROUP BY columns except time_bucket, order_by = time_bucket DESC
 ALTER MATERIALIZED VIEW your_table_hourly SET (
     timescaledb.enable_columnstore,
     timescaledb.segmentby = 'entity_id, category',  -- all non-time GROUP BY columns
     timescaledb.orderby = 'bucket DESC'             -- time_bucket column
 );
 SELECT add_columnstore_policy('your_table_hourly', after => INTERVAL '3 days');
+```
 
--- Compress daily aggregates  
+**Compress daily aggregates:**
+
+```sql
 ALTER MATERIALIZED VIEW your_table_daily SET (
     timescaledb.enable_columnstore,
     timescaledb.segmentby = 'entity_id, category',  -- all non-time GROUP BY columns
@@ -367,93 +397,94 @@ SELECT add_columnstore_policy('your_table_daily', after => INTERVAL '7 days');
 
 ## Step 8: Set Retention Policies for Aggregates
 
-Keep aggregates longer than raw data for historical analysis:
+Keep aggregates longer than raw data for historical analysis.
+
+**Important:** Base retention periods on user requirements, not guesses. Aggregates are typically kept longer than raw data for historical analysis.
+
+**Common approach:** Aggregates retained 2-5x longer than raw data. Ask user about long-term analytical needs before setting these.
+
+If you aren't sure of the data retention period, include the `add_retention_policy` call but you **MUST comment it out**.
 
 ```sql
--- IMPORTANT: Base retention periods on user requirements, not guesses
--- Aggregates are typically kept longer than raw data for historical analysis
--- 
--- Common approach: Aggregates retained 2-5x longer than raw data
--- Ask user about long-term analytical needs before setting these
---
--- If you aren't sure of the data retention period than 
--- include the add_data_retention_policy call but you MUST comment it out.
---
---
--- Keep hourly aggregates (example - replace with actual requirements)
+-- Keep hourly aggregates (example - replace with actual requirements or comment out if you aren't sure)
 SELECT add_retention_policy('your_table_hourly', INTERVAL '2 years');
 
--- Keep daily aggregates for longer-term trends (example - replace with actual requirements)  
+-- Keep daily aggregates for longer-term trends (example - replace with actual requirements or comment out if you aren't sure)  
 SELECT add_retention_policy('your_table_daily', INTERVAL '5 years');
 ```
 
 ## Step 9: Create Performance Indexes
 
-Add indexes based on your actual query patterns:
+Add indexes based on your actual query patterns.
+
+**How to figure out what indexes to create:**
+1. Analyze your most common queries against the continuous aggregates
+2. Look for WHERE clause patterns in your application code  
+3. Create indexes that match your query filters + time ordering
+
+**Common pattern:** `(filter_column, time_bucket DESC)`
+
+This supports queries like: `SELECT ... WHERE entity_id = 'X' AND bucket >= '...' ORDER BY bucket DESC`
+
+**Example indexes on continuous aggregates** (replace with your actual query patterns):
 
 ```sql
--- HOW TO FIGURE OUT WHAT INDEXES TO CREATE:
--- 1. Analyze your most common queries against the continuous aggregates
--- 2. Look for WHERE clause patterns in your application code
--- 3. Create indexes that match your query filters + time ordering
---
--- Common pattern: (filter_column, time_bucket DESC)
--- This supports queries like: SELECT ... WHERE entity_id = 'X' AND bucket >= '...' ORDER BY bucket DESC
-
--- Example indexes on continuous aggregates (replace with your actual query patterns):
 CREATE INDEX idx_hourly_entity_bucket ON your_table_hourly (entity_id, bucket DESC);
 CREATE INDEX idx_hourly_category_bucket ON your_table_hourly (category, bucket DESC);
 CREATE INDEX idx_daily_entity_bucket ON your_table_daily (entity_id, bucket DESC);
 CREATE INDEX idx_daily_category_bucket ON your_table_daily (category, bucket DESC);
-
--- For multi-column filters, create composite indexes:
--- Example: if you query WHERE entity_id = 'X' AND category = 'Y'
--- CREATE INDEX idx_hourly_entity_category_bucket ON your_table_hourly (entity_id, category, bucket DESC);
-
--- DON'T create indexes blindly - each index has maintenance overhead
--- Only create indexes you'll actually use in queries
 ```
+
+**For multi-column filters, create composite indexes:**
+
+Example: if you query `WHERE entity_id = 'X' AND category = 'Y'`
+```sql
+CREATE INDEX idx_hourly_entity_category_bucket ON your_table_hourly (entity_id, category, bucket DESC);
+```
+
+**Important:** Don't create indexes blindly - each index has maintenance overhead. Only create indexes you'll actually use in queries.
 
 ## Step 10: Optional Performance Enhancements
 
 ### Enable Chunk Skipping for Compressed Data
+
+Enable chunk skipping on compressed chunks to skip entire chunks during queries. This creates min/max indexes that help exclude chunks based on column ranges.
+
+**When to use chunk skipping (in order of importance):**
+1. Column values have correlation/ordering within chunks (MOST IMPORTANT)
+2. Column is frequently used in WHERE clauses with range queries (>, <, =)
+
+**Best candidates:**
+- `updated_at` (when created_at is the partitioning column - they often correlate)
+- Sequential IDs or counters
+- Any column that tends to have similar values within the same time period
+
+**Example 1:** created_at is the partitioning column, enable chunk skipping on updated_at
 ```sql
--- Enable chunk skipping on compressed chunks to skip entire chunks during queries
--- This creates min/max indexes that help exclude chunks based on column ranges
-
--- WHEN TO USE CHUNK SKIPPING (in order of importance):
--- 1. Column values have correlation/ordering within chunks (MOST IMPORTANT)
--- 2. Column is frequently used in WHERE clauses with range queries (>, <, =)
---
--- BEST CANDIDATES:
--- - updated_at (when created_at is the partitioning column - they often correlate)
--- - Sequential IDs or counters
--- - Any column that tends to have similar values within the same time period
-
--- Example 1: created_at is the partitioning column, enable chunk skipping on updated_at
 -- This works because records created around the same time often have similar update times
 SELECT enable_chunk_skipping('your_table_name', 'updated_at');
+```
+This allows efficient chunk exclusion: `"WHERE updated_at > '2024-01-01'"` skips chunks where max(updated_at) < '2024-01-01'
 
--- Example 2: id (serial) is the partitioning column, enable chunk skipping on created_at  
+**Example 2:** id (serial) is the partitioning column, enable chunk skipping on created_at
+```sql
 -- This works because sequential IDs are often created around the same time
 SELECT enable_chunk_skipping('your_table_name', 'created_at');
-
--- Both allow efficient chunk exclusion:
--- "WHERE updated_at > '2024-01-01'" skips chunks where max(updated_at) < '2024-01-01'
--- "WHERE created_at > '2024-01-01'" skips chunks where max(created_at) < '2024-01-01'
 ```
+This allows efficient chunk exclusion: `"WHERE created_at > '2024-01-01'"` skips chunks where max(created_at) < '2024-01-01'
 
 ### Add Space-Partitioning (NOT RECOMMENDED)
+
+Space partitioning is generally **NOT RECOMMENDED** for most use cases. It adds complexity and can hurt performance more than it helps.
+
+**Only consider space partitioning if:**
+- You have very specific query patterns that ALWAYS filter by the space dimension
+- You have expert-level TimescaleDB knowledge
+- You've measured that it actually improves your specific workload
+
+**For most users:** stick with time-only partitioning
+
 ```sql
--- Space partitioning is generally NOT RECOMMENDED for most use cases
--- It adds complexity and can hurt performance more than it helps
--- 
--- Only consider space partitioning if:
--- - You have very specific query patterns that ALWAYS filter by the space dimension
--- - You have expert-level TimescaleDB knowledge
--- - You've measured that it actually improves your specific workload
---
--- For most users: stick with time-only partitioning
 -- Example (NOT recommended for typical use):
 -- SELECT add_dimension('your_table_name', 'entity_id', number_partitions => 4);
 ```

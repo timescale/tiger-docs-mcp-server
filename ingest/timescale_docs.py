@@ -59,18 +59,28 @@ class DatabaseManager:
 
     def __init__(self, database_uri, embedding_model=None):
         self.database_uri = database_uri
-        self.connection = None
         self.embedding_model = embedding_model
-        self.init_database()
-
-    def init_database(self):
-        """Initialize database connection (tables created via migrations)"""
         try:
-            # Create connection
             self.connection = psycopg.connect(self.database_uri)
-
         except Exception as e:
-            raise RuntimeError(f"Database initialization failed: {e}")
+            raise RuntimeError(f"Database connection failed: {e}")
+
+    def create_tmp_tables(self):
+        with self.connection.cursor() as cursor:
+            cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_chunks_tmp").format(schema=Identifier(schema)))
+            cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_pages_tmp").format(schema=Identifier(schema)))
+            cursor.execute(SQL("CREATE TABLE {schema}.timescale_pages_tmp (LIKE {schema}.timescale_pages INCLUDING ALL)").format(schema=Identifier(schema)))
+            cursor.execute(SQL("CREATE TABLE {schema}.timescale_chunks_tmp (LIKE {schema}.timescale_chunks INCLUDING ALL)").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp ADD FOREIGN KEY (page_id) REFERENCES {schema}.timescale_pages_tmp(id)").format(schema=Identifier(schema)))
+        self.connection.commit()
+
+    def rename_tables(self):
+        with self.connection.cursor() as cursor:
+            cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_chunks").format(schema=Identifier(schema)))
+            cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_pages").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp RENAME TO timescale_chunks").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER TABLE {schema}.timescale_pages_tmp RENAME TO timescale_pages").format(schema=Identifier(schema)))
+        self.connection.commit()
 
     def save_page(self, url, domain, filename, content_length, chunking_method='header'):
         """Save page information and return the page ID"""
@@ -80,7 +90,7 @@ class DatabaseManager:
                 self.connection.transaction() as _,
             ):
                 cursor.execute(SQL("""
-                    INSERT INTO {schema}.timescale_pages (url, domain, filename, content_length, chunking_method)
+                    INSERT INTO {schema}.timescale_pages_tmp (url, domain, filename, content_length, chunking_method)
                     VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (url) DO UPDATE SET
                         content_length = EXCLUDED.content_length,
@@ -146,7 +156,7 @@ class DatabaseManager:
             ):
                 for chunk, embedding in zip(processed_chunks, embeddings):
                     cursor.execute(SQL("""
-                        INSERT INTO {schema}.timescale_chunks (page_id, chunk_index, sub_chunk_index, content, metadata, embedding)
+                        INSERT INTO {schema}.timescale_chunks_tmp (page_id, chunk_index, sub_chunk_index, content, metadata, embedding)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """).format(schema=Identifier(schema)), (
                         page_id,
@@ -159,7 +169,7 @@ class DatabaseManager:
 
                 # Update chunks count in pages table
                 cursor.execute(SQL("""
-                    UPDATE {schema}.timescale_pages
+                    UPDATE {schema}.timescale_pages_tmp
                     SET chunks_count = %s
                     WHERE id = %s
                 """).format(schema=Identifier(schema)), (len(chunks), page_id))
@@ -867,21 +877,6 @@ Respond only with the IDs of the chunks where you believe a split should occur. 
 
         return f"{safe_path}.md"
 
-    def spider_closed(self, spider, reason):
-        """Called when spider finishes - create indexes for optimal query performance"""
-        if self.db_manager is not None:
-            try:
-                if not self.skip_indexes:
-                    self.logger.info("Spider finished - creating database indexes...")
-                    self.db_manager.create_indexes()
-                    self.logger.info("Database indexes created successfully!")
-                else:
-                    self.logger.info("Skipping index creation as requested")
-            except Exception as e:
-                self.logger.error(f"Failed to create database indexes: {e}")
-            finally:
-                self.db_manager.close()
-
 
 # Standalone script to run the spider
 if __name__ == "__main__":
@@ -1037,6 +1032,7 @@ if __name__ == "__main__":
 
         embedding_model = OpenAIEmbeddingWrapper(client)
         db_manager = DatabaseManager(database_uri=args.database_uri, embedding_model=embedding_model)
+        db_manager.create_tmp_tables()
     else:
         file_manager = FileManager(args.output_dir)
 
@@ -1057,6 +1053,7 @@ if __name__ == "__main__":
     # Create database indexes after scraping completes
     if args.storage_type == 'database' and not args.skip_indexes and db_manager:
         try:
+            db_manager.rename_tables()
             print("Creating database indexes...")
             db_manager.create_indexes()
             print("Database indexes created successfully!")

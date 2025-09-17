@@ -34,6 +34,8 @@ These benefits are most effective for tables with:
 
 ### Option A: From Database Connection
 
+#### Analyze table statistics
+
 ```sql
 -- Get all tables with their row counts and key statistics
 WITH table_stats AS (
@@ -89,18 +91,25 @@ SELECT
 FROM pg_indexes 
 WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
 ORDER BY tablename, indexname;
+```
 
--- Look for patterns like:
--- - Multiple indexes containing timestamp/created_at columns (suggests time-based queries)
--- - Composite indexes with (entity_id, timestamp) pattern (good hypertable candidates)
--- - Time-only indexes (indicates time range filtering is common)
+**Look for these index patterns:**
+- **Multiple indexes containing timestamp/created_at columns** - suggests time-based queries
+- **Composite indexes with (entity_id, timestamp) pattern** - good hypertable candidates  
+- **Time-only indexes** - indicates time range filtering is common
 
--- Also analyze actual query patterns if pg_stat_statements is available
+#### Analyze query patterns
+
+Check if pg_stat_statements is available:
+
+```sql
 SELECT EXISTS (
     SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'
 ) as has_pg_stat_statements;
+```
 
--- If available, analyze most expensive queries for candidate tables
+If available, analyze most expensive queries for candidate tables
+```sql
 SELECT 
     query,
     calls,
@@ -110,13 +119,18 @@ FROM pg_stat_statements
 WHERE query ILIKE '%your_table_name%'
 ORDER BY total_exec_time DESC
 LIMIT 20;
+```
 
--- What to look for in query patterns:
--- - Time-based WHERE clauses (WHERE timestamp >= ...) ✅ Good
--- - Entity-based filtering (WHERE device_id = ...) ✅ Good  
--- - Aggregation queries (GROUP BY time_bucket(...)) ✅ Good
--- - Range queries over time periods ✅ Good
--- - Non-time-based lookups (WHERE email = ...) ❌ Poor
+**What to look for in query patterns:**
+- ✅ **Time-based WHERE clauses** (`WHERE timestamp >= ...`) - Good
+- ✅ **Entity-based filtering** (`WHERE device_id = ...`) - Good  
+- ✅ **Aggregation queries** (`GROUP BY time_bucket(...)`) - Good
+- ✅ **Range queries over time periods** - Good
+- ❌ **Non-time-based lookups** (`WHERE email = ...`) - Poor
+
+#### Analyze constraints
+
+```sql
 
 -- Check all constraints for migration compatibility
 SELECT 
@@ -125,20 +139,21 @@ SELECT
     pg_get_constraintdef(oid) as definition
 FROM pg_constraint 
 WHERE conrelid = 'your_table_name'::regclass;
-
--- Migration compatibility notes:
--- - Primary keys (p): Must include partition column or get user permission to modify
--- - Foreign keys (f): Plain→Hypertable and Hypertable→Plain FKs are supported
---   Only Hypertable→Hypertable FKs are NOT supported - check if any target tables are also hypertables
--- - Unique constraints (u): Must include partition column or can be dropped
--- - Check constraints (c): Usually no issues
 ```
+
+**Migration compatibility notes:**
+- **Primary keys (p)**: Must include partition column or get user permission to modify
+- **Foreign keys (f)**: Plain→Hypertable and Hypertable→Plain FKs are supported. Only Hypertable→Hypertable FKs are NOT supported - check if any target tables are also hypertables
+- **Unique constraints (u)**: Must include partition column or can be dropped
+- **Check constraints (c)**: Usually no issues
 
 ### Option B: From Code Analysis
 
 When analyzing existing application code without database access, look for these patterns:
 
-**✅ GOOD Hypertable Candidates - Code Patterns:**
+#### Analyze query patterns
+
+**✅ GOOD Hypertable Candidates - Query Patterns:**
 
 ```python
 # PATTERN 1: Append-only logging/events
@@ -181,7 +196,7 @@ def daily_summary(start_date, end_date):
     # ✅ Time-bucket aggregations
 ```
 
-**❌ POOR Hypertable Candidates - Code Patterns:**
+**❌ POOR Hypertable Candidates - Query Patterns:**
 
 ```python
 # ANTI-PATTERN 1: Frequent UPDATEs to historical records
@@ -213,9 +228,11 @@ def get_all_countries():
     # ❌ Static reference data, small table
 ```
 
-**Schema Definition Analysis:**
+###  Schema Definition Analysis:
 
 Look for these patterns in CREATE TABLE statements and index definitions:
+
+**✅ GOOD Schema Patterns:**
 
 ```sql
 -- ✅ GOOD: Time-series schema patterns
@@ -229,6 +246,16 @@ CREATE TABLE events (
 );
 -- ✅ Has timestamp, likely append-only based on schema
 
+-- ✅ GOOD: Index patterns indicating hypertable candidates
+CREATE INDEX idx_events_user_time ON events (user_id, event_time DESC);
+CREATE INDEX idx_events_time ON events (event_time DESC);
+CREATE INDEX idx_events_type_time ON events (event_type, event_time DESC);
+-- ✅ Multiple indexes contain event_time - suggests frequent time-based queries
+```
+
+**❌ POOR Schema Patterns:**
+
+```sql
 -- ❌ POOR: Mutable entity schemas  
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
@@ -251,12 +278,6 @@ CREATE TABLE user_settings (
 );
 -- ❌ NO: Settings data frequently updated, accessed by user_id not time
 
--- ✅ GOOD: Index patterns indicating hypertable candidates
-CREATE INDEX idx_events_user_time ON events (user_id, event_time DESC);
-CREATE INDEX idx_events_time ON events (event_time DESC);
-CREATE INDEX idx_events_type_time ON events (event_type, event_time DESC);
--- ✅ Multiple indexes contain event_time - suggests frequent time-based queries
-
 -- ❌ POOR: Index patterns suggesting non-time-series access
 CREATE INDEX idx_users_email ON users (email);
 CREATE INDEX idx_users_name ON users (name);
@@ -264,7 +285,7 @@ CREATE INDEX idx_users_status ON users (status);
 -- ❌ No time-based indexes - suggests lookup by attributes, not time ranges
 ```
 
-**Index Analysis Guidelines:**
+#### Index Analysis Guidelines:
 
 When examining CREATE INDEX statements in migrations or schema files:
 
@@ -280,7 +301,7 @@ When examining CREATE INDEX statements in migrations or schema files:
   - Foreign key indexes pointing to reference tables
   - Complex multi-column indexes without time dimensions
 
-**⚠️ SPECIAL CASE: ID-Based Tables with Time-Series Characteristics**
+#### SPECIAL CASE: ID-Based Tables with Time-Series Characteristics
 
 Some tables with sequential ID primary keys can still be good hypertable candidates if they exhibit insert-heavy patterns with time-correlated access:
 
@@ -344,7 +365,7 @@ def daily_order_stats(start_date, end_date):
 
 ## Step 2: Hypertable Candidacy Assessment
 
-### High Priority Candidates
+### GOOD Candidates for Hypertable Conversion
 
 Tables scoring 8+ points from this criteria:
 
@@ -366,11 +387,10 @@ Tables scoring 8+ points from this criteria:
 - ✅ **Numeric measurements/values** (1 point)
 - ✅ **Log/event data structure** (1 point)
 
-### Common Candidate Table Types
+**PATTERN 1: Event/Log Tables**
+Examples: user_events, application_logs, audit_logs
 
 ```sql
--- PATTERN 1: Event/Log Tables
--- Examples: user_events, application_logs, audit_logs
 CREATE TABLE user_events (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -379,12 +399,14 @@ CREATE TABLE user_events (
     session_id UUID,
     metadata JSONB
 );
--- ✅ HYPERTABLE CANDIDATE: id partition (correlated with event_time), user_id segment
--- Use: SELECT create_hypertable('user_events', 'id'); 
---      SELECT enable_chunk_skipping('user_events', 'event_time');
+```
+✅ **HYPERTABLE CANDIDATE**: id partition (correlated with event_time), user_id segment
+**Setup**: `SELECT create_hypertable('user_events', 'id'); SELECT enable_chunk_skipping('user_events', 'event_time');`
 
--- PATTERN 2: Sensor/IoT Data
--- Examples: sensor_readings, device_telemetry, measurements
+**PATTERN 2: Sensor/IoT Data**
+Examples: sensor_readings, device_telemetry, measurements
+
+```sql
 CREATE TABLE sensor_readings (
     device_id VARCHAR(50) NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL,        -- ✅ PARTITION CANDIDATE  
@@ -392,10 +414,13 @@ CREATE TABLE sensor_readings (
     humidity DOUBLE PRECISION,
     location POINT
 );
--- ✅ HYPERTABLE CANDIDATE: timestamp partition, device_id segment
+```
+✅ **HYPERTABLE CANDIDATE**: timestamp partition, device_id segment
 
--- PATTERN 3: Financial/Trading Data
--- Examples: stock_prices, transactions, market_data
+**PATTERN 3: Financial/Trading Data**
+Examples: stock_prices, transactions, market_data
+
+```sql
 CREATE TABLE stock_prices (
     symbol VARCHAR(10) NOT NULL,
     price_time TIMESTAMPTZ NOT NULL,       -- ✅ PARTITION CANDIDATE
@@ -403,10 +428,13 @@ CREATE TABLE stock_prices (
     close_price DECIMAL(10,2),
     volume BIGINT
 );
--- ✅ HYPERTABLE CANDIDATE: price_time partition, symbol segment
+```
+✅ **HYPERTABLE CANDIDATE**: price_time partition, symbol segment
 
--- PATTERN 4: Performance Metrics
--- Examples: system_metrics, application_metrics, monitoring_data
+**PATTERN 4: Performance Metrics**
+Examples: system_metrics, application_metrics, monitoring_data
+
+```sql
 CREATE TABLE system_metrics (
     hostname VARCHAR(100),
     metric_time TIMESTAMPTZ NOT NULL,      -- ✅ PARTITION CANDIDATE
@@ -414,10 +442,12 @@ CREATE TABLE system_metrics (
     memory_usage BIGINT,
     disk_io BIGINT
 );
--- ✅ HYPERTABLE CANDIDATE: metric_time partition, hostname segment
 ```
+✅ **HYPERTABLE CANDIDATE**: metric_time partition, hostname segment
 
-### Tables to AVOID Converting
+### POOR Candidates for Hypertable Conversion
+
+Tables to AVOID Converting:
 
 **❌ Poor Candidates (0-3 points)**
 - Reference/lookup tables (countries, categories, settings)
@@ -427,25 +457,32 @@ CREATE TABLE system_metrics (
 - Tables without time-based access patterns
 - Configuration/metadata tables
 
+**ANTI-PATTERN 1: Reference Tables**
+
 ```sql
--- ANTI-PATTERN 1: Reference Tables
 CREATE TABLE countries (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100),
     code CHAR(2)
 );
--- ❌ NO: Static reference data, no time component
+```
+❌ **NO**: Static reference data, no time component
 
--- ANTI-PATTERN 2: User Profiles  
+**ANTI-PATTERN 2: User Profiles**
+
+```sql
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     email VARCHAR(255),
     created_at TIMESTAMPTZ,  -- Has timestamp but...
     updated_at TIMESTAMPTZ   -- Frequently updated, not time-series access
 );
--- ❌ NO: Profile data accessed by user_id, not time ranges
+```
+❌ **NO**: Profile data accessed by user_id, not time ranges
 
--- ANTI-PATTERN 3: Frequently Updated Settings/Configuration
+**ANTI-PATTERN 3: Frequently Updated Settings/Configuration**
+
+```sql
 CREATE TABLE user_settings (
     user_id BIGINT PRIMARY KEY,
     theme VARCHAR(20),       -- Changes: light -> dark -> auto
@@ -453,8 +490,8 @@ CREATE TABLE user_settings (
     notifications JSONB,     -- Frequent preference updates
     updated_at TIMESTAMPTZ
 );
--- ❌ NO: Settings data frequently updated, accessed by user_id not time
 ```
+❌ **NO**: Settings data frequently updated, accessed by user_id not time
 
 ## Key Information to Highlight in Analysis
 

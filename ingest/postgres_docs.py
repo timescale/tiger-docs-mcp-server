@@ -429,8 +429,8 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
     )
     conn.execute(
         SQL(
-            "alter table {table} add foreign key (page_id) references docs.postgres_pages_tmp(id) on delete cascade"
-        ).format(table=TMP_CHUNKS_TABLE)
+            "alter table {chunks_table} add foreign key (page_id) references {pages_table}}(id) on delete cascade"
+        ).format(chunks_table=TMP_CHUNKS_TABLE, pages_table=TMP_PAGES_TABLE)
     )
     conn.commit()
 

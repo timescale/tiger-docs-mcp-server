@@ -522,7 +522,14 @@ def main():
         checkout_tag(tag)
         build_html()
         build_markdown()
-        chunk_files(conn, version)
+        try:
+            chunk_files(conn, version)
+        except Exception as e:
+            with conn.cursor() as cur:
+                cur.execute(SQL("drop table if exists {table}").format(table=TMP_CHUNKS_TABLE))
+                cur.execute(SQL("drop table if exists {table}").format(table=TMP_PAGES_TABLE))
+                conn.commit()
+            raise e
 
 
 if __name__ == "__main__":

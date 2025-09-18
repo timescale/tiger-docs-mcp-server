@@ -43,10 +43,10 @@ TMP_ID = (
     .replace("+", "_")
 )
 TMP_CHUNKS_TABLE = SQL("{schema}.{table}").format(
-    Identifier("docs"), Identifier(f"postgres_chunks_tmp_{TMP_ID}")
+    schema=Identifier("docs"), table=Identifier(f"postgres_chunks_tmp_{TMP_ID}")
 )
 TMP_PAGES_TABLE = SQL("{schema}.{table}").format(
-    Identifier("docs"), Identifier(f"postgres_pages_tmp_{TMP_ID}")
+    schema=Identifier("docs"), table=Identifier(f"postgres_pages_tmp_{TMP_ID}")
 )
 
 

@@ -402,6 +402,15 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
     )
     conn.commit()
 
+    # Reset the sequences for the temp tables
+    conn.execute(
+        "select setval(pg_get_serial_sequence('docs.postgres_chunks_tmp', 'id'), (select max(id) from docs.postgres_chunks_tmp))"
+    )
+    conn.execute(
+        "select setval(pg_get_serial_sequence('docs.postgres_pages_tmp', 'id'), (select max(id) from docs.postgres_pages_tmp))"
+    )
+    conn.commit()
+
     header_pattern = re.compile("^(#{1,3}) .+$")
     codeblock_pattern = re.compile("^```")
 

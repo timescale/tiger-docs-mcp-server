@@ -35,19 +35,25 @@ POSTGRES_BASE_URL = "https://www.postgresql.org/docs"
 ENC = tiktoken.get_encoding("cl100k_base")
 MAX_CHUNK_TOKENS = 7000
 
+# While lowercasing the ID reduces the entropy, it helps avoid issues with
+# case sensitivity in Postgres table names, and we also expect only a few
+# instances of this script to ever run concurrently.
 TMP_ID = (
     base64.urlsafe_b64encode(uuid.uuid4().bytes)
     .rstrip(b"=")
     .decode("ascii")
     .replace("-", "_")
     .replace("+", "_")
+    .lower()
 )
 TMP_CHUNKS_TABLE = SQL("{schema}.{table}").format(
     schema=Identifier("docs"), table=Identifier(f"postgres_chunks_tmp_{TMP_ID}")
 )
+TMP_CHUNKS_TABLE_NAME = f"docs.postgres_chunks_tmp_{TMP_ID}"
 TMP_PAGES_TABLE = SQL("{schema}.{table}").format(
     schema=Identifier("docs"), table=Identifier(f"postgres_pages_tmp_{TMP_ID}")
 )
+TMP_PAGES_TABLE_NAME = f"docs.postgres_pages_tmp_{TMP_ID}"
 
 
 def update_repo():
@@ -434,6 +440,21 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
     )
     conn.commit()
 
+    # Reset the sequences for the temp tables
+    conn.execute(
+        SQL(
+            "select setval(pg_get_serial_sequence(%s, 'id'), (select max(id) from {table}))"
+        ).format(table=TMP_PAGES_TABLE),
+        [TMP_PAGES_TABLE_NAME],
+    )
+    conn.execute(
+        SQL(
+            "select setval(pg_get_serial_sequence(%s, 'id'), (select max(id) from {table}))"
+        ).format(table=TMP_CHUNKS_TABLE),
+        [TMP_CHUNKS_TABLE_NAME],
+    )
+    conn.commit()
+
     header_pattern = re.compile("^(#{1,3}) .+$")
     codeblock_pattern = re.compile("^```")
 
@@ -534,7 +555,8 @@ def main():
         build_markdown()
         try:
             chunk_files(conn, version)
-        except Exception as e:
+        except BaseException:
+            conn.rollback()
             with conn.cursor() as cur:
                 cur.execute(
                     SQL("drop table if exists {table}").format(table=TMP_CHUNKS_TABLE)
@@ -543,7 +565,7 @@ def main():
                     SQL("drop table if exists {table}").format(table=TMP_PAGES_TABLE)
                 )
                 conn.commit()
-            raise e
+            raise
 
 
 if __name__ == "__main__":

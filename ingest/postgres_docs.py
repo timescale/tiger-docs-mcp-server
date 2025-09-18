@@ -35,9 +35,19 @@ POSTGRES_BASE_URL = "https://www.postgresql.org/docs"
 ENC = tiktoken.get_encoding("cl100k_base")
 MAX_CHUNK_TOKENS = 7000
 
-TMP_ID = base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b"=").decode("ascii").replace('-', '_').replace('+', '_')
-TMP_CHUNKS_TABLE = Identifier(f"docs.postgres_chunks_{TMP_ID}")
-TMP_PAGES_TABLE = Identifier(f"docs.postgres_pages_{TMP_ID}")
+TMP_ID = (
+    base64.urlsafe_b64encode(uuid.uuid4().bytes)
+    .rstrip(b"=")
+    .decode("ascii")
+    .replace("-", "_")
+    .replace("+", "_")
+)
+TMP_CHUNKS_TABLE = SQL("{schema}.{table}").format(
+    Identifier("docs"), Identifier(f"postgres_chunks_tmp_{TMP_ID}")
+)
+TMP_PAGES_TABLE = SQL("{schema}.{table}").format(
+    Identifier("docs"), Identifier(f"postgres_pages_tmp_{TMP_ID}")
+)
 
 
 def update_repo():
@@ -526,8 +536,12 @@ def main():
             chunk_files(conn, version)
         except Exception as e:
             with conn.cursor() as cur:
-                cur.execute(SQL("drop table if exists {table}").format(table=TMP_CHUNKS_TABLE))
-                cur.execute(SQL("drop table if exists {table}").format(table=TMP_PAGES_TABLE))
+                cur.execute(
+                    SQL("drop table if exists {table}").format(table=TMP_CHUNKS_TABLE)
+                )
+                cur.execute(
+                    SQL("drop table if exists {table}").format(table=TMP_PAGES_TABLE)
+                )
                 conn.commit()
             raise e
 

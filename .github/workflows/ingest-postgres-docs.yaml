@@ -1,0 +1,40 @@
+name: Ingest PostgreSQL Docs
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'PostgreSQL version to ingest (e.g. 14, 15, etc.)'
+        required: true
+        default: '17'
+
+jobs:
+  ingest:
+    name: Ingest PostgreSQL Docs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: 3.12
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ingest PostgreSQL ${{ github.event.inputs.version }} docs
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+        run: uv run python postgres_docs.py ${{ github.event.inputs.version }}

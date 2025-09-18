@@ -8,8 +8,11 @@ import openai
 import os
 from pathlib import Path
 import psycopg
+from psycopg.sql import SQL, Identifier
+import random
 import re
 import shutil
+import string
 import subprocess
 import tiktoken
 
@@ -31,6 +34,10 @@ POSTGRES_BASE_URL = "https://www.postgresql.org/docs"
 
 ENC = tiktoken.get_encoding("cl100k_base")
 MAX_CHUNK_TOKENS = 7000
+
+TMP_ID = "".join(random.choices(string.ascii_letters + string.digits, k=6))
+TMP_CHUNKS_TABLE = Identifier(f"docs.postgres_chunks_{TMP_ID}")
+TMP_PAGES_TABLE = Identifier(f"docs.postgres_pages_{TMP_ID}")
 
 
 def update_repo():
@@ -237,7 +244,9 @@ def insert_page(
 ) -> None:
     print("inserting page", page.filename, page.url)
     result = conn.execute(
-        "insert into docs.postgres_pages_tmp (version, url, domain, filename, content_length, chunks_count) values (%s,%s,%s,%s,%s,%s) RETURNING id",
+        SQL(
+            "insert into {table} (version, url, domain, filename, content_length, chunks_count) values (%s,%s,%s,%s,%s,%s) RETURNING id"
+        ).format(table=TMP_PAGES_TABLE),
         [
             page.version,
             page.url,
@@ -257,8 +266,8 @@ def update_page_stats(
     page: Page,
 ) -> None:
     conn.execute(
-        """
-        update docs.postgres_pages_tmp p
+        SQL("""
+        update {pages_table} p
         set
             content_length = coalesce(chunks_stats.total_length, 0),
             chunks_count = coalesce(chunks_stats.chunks_count, 0)
@@ -267,12 +276,15 @@ def update_page_stats(
                 page_id,
                 sum(char_length(content)) as total_length,
                 count(*) as chunks_count
-            from docs.postgres_chunks_tmp
+            from {chunks_table}
             where page_id = %s
             group by page_id
         ) as chunks_stats
         where p.id = chunks_stats.page_id and p.id = %s
-    """,
+    """).format(
+            pages_table=TMP_PAGES_TABLE,
+            chunks_table=TMP_CHUNKS_TABLE,
+        ),
         [page.id, page.id],
     )
 
@@ -307,7 +319,9 @@ def insert_chunk(
         if match:
             url += match.group(1).lower()
     conn.execute(
-        "insert into docs.postgres_chunks_tmp (page_id, chunk_index, sub_chunk_index, content, metadata, embedding) values (%s,%s,%s,%s,%s,%s)",
+        SQL(
+            "insert into {table} (page_id, chunk_index, sub_chunk_index, content, metadata, embedding) values (%s,%s,%s,%s,%s,%s)"
+        ).format(table=TMP_CHUNKS_TABLE),
         [
             page.id,
             chunk.idx,
@@ -381,24 +395,32 @@ def process_chunk(conn: psycopg.Connection, page: Page, chunk: Chunk) -> None:
 
 
 def chunk_files(conn: psycopg.Connection, version: int) -> None:
-    conn.execute("drop table if exists docs.postgres_chunks_tmp")
-    conn.execute("drop table if exists docs.postgres_pages_tmp")
     conn.execute(
-        "create table docs.postgres_pages_tmp (like docs.postgres_pages including all)"
+        SQL("create table {table} (like docs.postgres_pages including all)").format(
+            table=TMP_PAGES_TABLE
+        )
     )
     conn.execute(
-        "insert into docs.postgres_pages_tmp select * from docs.postgres_pages where version != %s",
+        SQL(
+            "insert into {table} select * from docs.postgres_pages where version != %s"
+        ).format(table=TMP_PAGES_TABLE),
         [version],
     )
     conn.execute(
-        "create table docs.postgres_chunks_tmp (like docs.postgres_chunks including all)"
+        SQL("create table {table} (like docs.postgres_chunks including all)").format(
+            table=TMP_CHUNKS_TABLE
+        )
     )
     conn.execute(
-        "insert into docs.postgres_chunks_tmp select c.* from docs.postgres_chunks c inner join docs.postgres_pages p on c.page_id = p.id where p.version != %s",
+        SQL(
+            "insert into {table} select c.* from docs.postgres_chunks c inner join docs.postgres_pages p on c.page_id = p.id where p.version != %s"
+        ).format(table=TMP_CHUNKS_TABLE),
         [version],
     )
     conn.execute(
-        "alter table docs.postgres_chunks_tmp add foreign key (page_id) references docs.postgres_pages_tmp(id) on delete cascade"
+        SQL(
+            "alter table {table} add foreign key (page_id) references docs.postgres_pages_tmp(id) on delete cascade"
+        ).format(table=TMP_CHUNKS_TABLE)
     )
     conn.commit()
 
@@ -470,8 +492,16 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
     with conn.cursor() as cur:
         cur.execute("drop table docs.postgres_chunks")
         cur.execute("drop table docs.postgres_pages")
-        cur.execute("alter table docs.postgres_chunks_tmp rename to postgres_chunks")
-        cur.execute("alter table docs.postgres_pages_tmp rename to postgres_pages")
+        cur.execute(
+            SQL("alter table {table} rename to postgres_chunks").format(
+                table=TMP_CHUNKS_TABLE
+            )
+        )
+        cur.execute(
+            SQL("alter table {table} rename to postgres_pages").format(
+                table=TMP_PAGES_TABLE
+            )
+        )
         conn.commit()
 
     print(f"Processed {page_count} pages.")

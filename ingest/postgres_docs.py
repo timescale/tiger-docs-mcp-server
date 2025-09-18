@@ -394,11 +394,11 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
         "create table docs.postgres_chunks_tmp (like docs.postgres_chunks including all)"
     )
     conn.execute(
-        "insert into docs.postgres_chunks_tmp select * from docs.postgres_chunks c inner join docs.postgres_pages p on c.page_id = p.id where p.version != %s",
+        "insert into docs.postgres_chunks_tmp select c.* from docs.postgres_chunks c inner join docs.postgres_pages p on c.page_id = p.id where p.version != %s",
         [version],
     )
     conn.execute(
-        "alter table docs.postgres_chunks_tmp add foreign key (page_id) references docs.postgres_pages_tmp(id)"
+        "alter table docs.postgres_chunks_tmp add foreign key (page_id) references docs.postgres_pages_tmp(id) on delete cascade"
     )
     conn.commit()
 
@@ -407,6 +407,8 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
 
     section_prefix = r"^[A-Za-z0-9.]+\.\s*"
     chapter_prefix = r"^Chapter\s+[0-9]+\.\s*"
+
+    page_count = 0
 
     for md in MD_DIR.glob("*.md"):
         print(f"chunking {md}...")
@@ -425,6 +427,7 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
                 domain="postgresql.org",
                 filename=md.name,
             )
+            page_count += 1
 
             insert_page(conn, page)
 
@@ -470,6 +473,8 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
         cur.execute("alter table docs.postgres_chunks_tmp rename to postgres_chunks")
         cur.execute("alter table docs.postgres_pages_tmp rename to postgres_pages")
         conn.commit()
+
+    print(f"Processed {page_count} pages.")
 
 
 def main():

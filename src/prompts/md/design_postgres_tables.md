@@ -1,4 +1,9 @@
-# PostgreSQL Table Design — Concise Guide (LLM Context)
+---
+title: PostgreSQL Table Design
+description: Comprehensive PostgreSQL-specific table design reference covering data types, indexing, constraints, performance patterns, and advanced features
+---
+
+# PostgreSQL Table Design 
 
 ## Core Rules
 

@@ -29,10 +29,10 @@ jobs:
       - name: Install python dependencies
         run: uv sync
 
-      - name: Install postgresql configure dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxml2-utils
+          sudo apt-get install -y docbook-xml docbook-xsl libxml2-utils xsltproc fop
 
       - name: Ingest PostgreSQL ${{ github.event.inputs.version }} docs
         env:

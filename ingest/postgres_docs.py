@@ -1,6 +1,7 @@
 import argparse
 from dataclasses import dataclass
 from dotenv import load_dotenv
+import base64
 from bs4 import BeautifulSoup, element as BeautifulSoupElement
 import json
 from markdownify import markdownify
@@ -9,12 +10,11 @@ import os
 from pathlib import Path
 import psycopg
 from psycopg.sql import SQL, Identifier
-import random
 import re
 import shutil
-import string
 import subprocess
 import tiktoken
+import uuid
 
 
 THIS_DIR = Path(__file__).parent.resolve()
@@ -35,7 +35,7 @@ POSTGRES_BASE_URL = "https://www.postgresql.org/docs"
 ENC = tiktoken.get_encoding("cl100k_base")
 MAX_CHUNK_TOKENS = 7000
 
-TMP_ID = "".join(random.choices(string.ascii_letters + string.digits, k=6))
+TMP_ID = base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b"=").decode("ascii").replace('-', '_').replace('+', '_')
 TMP_CHUNKS_TABLE = Identifier(f"docs.postgres_chunks_{TMP_ID}")
 TMP_PAGES_TABLE = Identifier(f"docs.postgres_pages_{TMP_ID}")
 

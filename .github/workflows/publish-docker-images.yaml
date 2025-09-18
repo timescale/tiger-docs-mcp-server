@@ -5,6 +5,10 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  packages: write
+  contents: read
+
 jobs:
   docker-publish-mcp:
     name: docker-publish-mcp

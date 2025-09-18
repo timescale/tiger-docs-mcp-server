@@ -41,6 +41,17 @@ description: Comprehensive PostgreSQL-specific table design reference covering d
 - **Domain types**: `CREATE DOMAIN email AS TEXT CHECK (VALUE ~ '^[^@]+@[^@]+$')` for reusable custom types with validation. Enforces constraints across tables.
 - **Composite types**: `CREATE TYPE address AS (street TEXT, city TEXT, zip TEXT)` for structured data within columns. Access with `(col).field` syntax.
 - **JSONB**: preferred over JSON; index with **GIN**. Use only for optional/semi-structured attrs.
+- **Vector types**: `vector` type by `pgvector` for vector similarity search for embeddings.
+
+
+### Do not use the following data types
+- DO NOT use `timestamp` (without time zone); DO use `timestamptz` instead.
+- DO NOT use `char(n)` or `varchar(n)`; DO use `text` instead.
+- DO NOT use `money` type; DO use `numeric` instead.
+- DO NOT use `timetz` type; DO use `timestamptz` instead.
+- DO NOT use `timestamptz(0)` or any other precision specification; DO use `timestamptz` instead
+- DO NOT use `serial` type; DO use `generated always as identity` instead.
+
 
 ## Table Types
 
@@ -95,8 +106,9 @@ Enable with `ALTER TABLE tbl ENABLE ROW LEVEL SECURITY`. Create policies: `CREAT
 - **Use `COPY` or multi-row `INSERT`** instead of single-row inserts.
 - **UNLOGGED tables** for rebuildable staging data—much faster writes.
 - **Defer index creation** for bulk loads—>drop index, load data, recreate indexes.
-- **Partition by time/hash** to distribute load. **TimescaleDB** automates time-series partitioning and compression.
-- **Prefer `BIGINT IDENTITY` over `UUID`** for insert-heavy primary keys.
+- **Partition by time/hash** to distribute load. **TimescaleDB** automates partitioning and compression of insert-heavy data.
+- **Use a natural key for primary key** such as a (timestamp, device_id) if enforcing global uniqueness is important many insert-heavy tables don't need a primary key at all.
+- If you do need a surrogate key, **Prefer `BIGINT GENERATED ALWAYS AS IDENTITY` over `UUID`**.
 
 ### Upsert-Friendly Design
 
@@ -125,6 +137,8 @@ Enable with `ALTER TABLE tbl ENABLE ROW LEVEL SECURITY`. Create policies: `CREAT
 - **`hstore`**: key-value pairs; mostly superseded by JSONB but useful for simple string mappings.
 - **`timescaledb`**: essential for time-series—automated partitioning, retention, compression, continuous aggregates.
 - **`postgis`**: comprehensive geospatial support beyond basic geometric types—essential for location-based applications.
+- **`pgvector`**: vector similarity search for embeddings.
+- **`pgaudit`**: audit logging for all database activity.
 
 ## JSONB Guidance
 

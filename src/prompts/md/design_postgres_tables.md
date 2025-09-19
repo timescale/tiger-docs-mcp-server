@@ -122,7 +122,7 @@ Enable with `ALTER TABLE tbl ENABLE ROW LEVEL SECURITY`. Create policies: `CREAT
 
 - **Transactional DDL**: most DDL operations can run in transactions and be rolled back—`BEGIN; ALTER TABLE...; ROLLBACK;` for safe testing.
 - **Concurrent index creation**: `CREATE INDEX CONCURRENTLY` avoids blocking writes but can't run in transactions.
-- **Add columns with defaults carefully**: adding `NOT NULL` columns with defaults rewrites entire table—add nullable first, backfill, then add constraint.
+- **Volatile defaults cause rewrites**: adding `NOT NULL` columns with volatile defaults (e.g., `now()`, `gen_random_uuid()`) rewrites entire table. Non-volatile defaults are fast.
 - **Drop constraints before columns**: `ALTER TABLE DROP CONSTRAINT` then `DROP COLUMN` to avoid dependency issues.
 - **Function signature changes**: `CREATE OR REPLACE` with different arguments creates overloads, not replacements. DROP old version if no overload desired.
 
@@ -181,12 +181,10 @@ CREATE INDEX ON users (created_at);
 ### Orders
 
 ```sql
-CREATE TYPE order_status AS ENUM ('PENDING','PAID','CANCELED');
-
 CREATE TABLE orders (
   order_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(user_id),
-  status order_status NOT NULL DEFAULT 'PENDING',
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PAID','CANCELED')),
   total NUMERIC(10,2) NOT NULL CHECK (total > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -22,6 +22,9 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharac
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
+if not os.path.exists(os.path.join(script_dir, 'build')):
+    os.makedirs(os.path.join(script_dir, 'build'))
+
 load_dotenv(dotenv_path=os.path.join(script_dir, '..', '.env'))
 schema = 'docs'
 
@@ -71,15 +74,21 @@ class DatabaseManager:
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_pages_tmp").format(schema=Identifier(schema)))
             cursor.execute(SQL("CREATE TABLE {schema}.timescale_pages_tmp (LIKE {schema}.timescale_pages INCLUDING ALL)").format(schema=Identifier(schema)))
             cursor.execute(SQL("CREATE TABLE {schema}.timescale_chunks_tmp (LIKE {schema}.timescale_chunks INCLUDING ALL)").format(schema=Identifier(schema)))
-            cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp ADD FOREIGN KEY (page_id) REFERENCES {schema}.timescale_pages_tmp(id)").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp ADD FOREIGN KEY (page_id) REFERENCES {schema}.timescale_pages_tmp(id) ON DELETE CASCADE").format(schema=Identifier(schema)))
         self.connection.commit()
 
-    def rename_tables(self):
+    def rename_objects(self):
+        """Rename the temporary tables and their indexes to the final names, dropping the old tables if they exist"""
         with self.connection.cursor() as cursor:
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_chunks").format(schema=Identifier(schema)))
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_pages").format(schema=Identifier(schema)))
             cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp RENAME TO timescale_chunks").format(schema=Identifier(schema)))
             cursor.execute(SQL("ALTER TABLE {schema}.timescale_pages_tmp RENAME TO timescale_pages").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_pages_tmp_domain RENAME TO idx_timescale_pages_domain").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_pages_tmp_url RENAME TO idx_timescale_pages_url").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_chunks_tmp_page_id RENAME TO idx_timescale_chunks_page_id").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_chunks_tmp_metadata RENAME TO idx_timescale_chunks_metadata").format(schema=Identifier(schema)))
+            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_chunks_tmp_embedding RENAME TO idx_timescale_chunks_embedding").format(schema=Identifier(schema)))
         self.connection.commit()
 
     def save_page(self, url, domain, filename, content_length, chunking_method='header'):
@@ -215,11 +224,11 @@ class DatabaseManager:
 
         # Define index creation tasks
         index_tasks = [
-            create_index("Pages domain index", f"CREATE INDEX IF NOT EXISTS idx_timescale_pages_domain ON {schema}.timescale_pages(domain)"),
-            create_index("Pages URL index", f"CREATE INDEX IF NOT EXISTS idx_timescale_pages_url ON {schema}.timescale_pages(url)"),
-            create_index("Chunks page_id index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_page_id ON {schema}.timescale_chunks(page_id)"),
-            create_index("Chunks metadata index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_metadata ON {schema}.timescale_chunks USING gin(metadata)"),
-            create_index("Vector HNSW index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_embedding ON {schema}.timescale_chunks USING hnsw (embedding vector_cosine_ops)")
+            create_index("Pages domain index", f"CREATE INDEX IF NOT EXISTS idx_timescale_pages_tmp_domain ON {schema}.timescale_pages_tmp(domain)"),
+            create_index("Pages URL index", f"CREATE INDEX IF NOT EXISTS idx_timescale_pages_tmp_url ON {schema}.timescale_pages_tmp(url)"),
+            create_index("Chunks page_id index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_tmp_page_id ON {schema}.timescale_chunks_tmp(page_id)"),
+            create_index("Chunks metadata index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_tmp_metadata ON {schema}.timescale_chunks_tmp USING gin(metadata)"),
+            create_index("Vector HNSW index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_tmp_embedding ON {schema}.timescale_chunks_tmp USING hnsw (embedding vector_cosine_ops)")
         ]
 
         # Run with max 3 concurrent workers
@@ -972,7 +981,7 @@ if __name__ == "__main__":
         database_uri=os.environ.get('DB_URL', f'postgresql://{os.environ["PGUSER"]}:{os.environ['PGPASSWORD']}@{os.environ['PGHOST']}:{os.environ['PGPORT']}/{os.environ['PGDATABASE']}'),
         domain=os.environ.get('SCRAPER_DOMAIN', 'docs.tigerdata.com'),
         max_pages=int(os.environ.get('SCRAPER_MAX_PAGES', 0)) or None,
-        output_dir=os.environ.get('SCRAPER_OUTPUT_DIR', 'scraped_docs'),
+        output_dir=os.environ.get('SCRAPER_OUTPUT_DIR', os.path.join(script_dir, 'build', 'scraped_docs')),
         chunking=os.environ.get('SCRAPER_CHUNKING_METHOD', 'header'),
         storage_type=os.environ.get('SCRAPER_STORAGE_TYPE', 'database')
     )
@@ -1053,9 +1062,10 @@ if __name__ == "__main__":
     # Create database indexes after scraping completes
     if args.storage_type == 'database' and not args.skip_indexes and db_manager:
         try:
-            db_manager.rename_tables()
             print("Creating database indexes...")
             db_manager.create_indexes()
+            print("Renaming temporary tables to final names...")
+            db_manager.rename_objects()
             print("Database indexes created successfully!")
         except Exception as e:
             print(f"Failed to create database indexes: {e}")

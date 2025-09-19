@@ -5,7 +5,9 @@
 ### Prerequisites
 
 * [`uv`](https://docs.astral.sh/uv/)
-* `icu4c` (for building postgres docs)
+* Docbook Toolsets for building PostgreSQL docs
+  (see [this page](https://www.postgresql.org/docs/current/docguide-toolsets.html)
+  for installing for specific platforms)
 
 ### Install Dependencies
 

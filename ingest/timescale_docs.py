@@ -1068,6 +1068,6 @@ if __name__ == "__main__":
             db_manager.rename_objects()
             print("Database indexes created successfully!")
         except Exception as e:
-            print(f"Failed to create database indexes: {e}")
+            print(f"Failed to finish database: {e}")
         finally:
             db_manager.close()

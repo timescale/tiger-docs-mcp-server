@@ -5,16 +5,22 @@ on:
       - main
 
 jobs:
-  release:
-    name: Build Docker
-    uses: timescale/cloud-actions/.github/workflows/build.yaml@main
-    with:
-      tags: |
-        auto-${{ github.sha }}
-      registry: 142548018081.dkr.ecr.us-east-1.amazonaws.com/tiger-docs-mcp-server
-      dockerfile_path: ./Dockerfile
-      skip-scan: true
-    secrets:
-      API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.ORG_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.ORG_AWS_SECRET_ACCESS_KEY }}
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch build-on-feature-branch workflow
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GH_AGENTS_PAT }}
+          script: |
+            await github.actions.createWorkflowDispatch({
+              owner: 'timescale',
+              repo: 'tiger-agents-deploy',
+              workflow_id: 'build-on-feature-branch.yaml',
+              ref: 'main',
+              inputs: {
+                repository: 'tiger-docs-mcp-server',
+                ref: ${{ github.ref }}
+                sha: ${{ github.sha }}
+              }
+            })

@@ -16,11 +16,10 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: 'timescale',
               repo: 'tiger-agents-deploy',
-              workflow_id: 'build-on-feature-branch.yaml',
+              workflow_id: 'build.yaml',
               ref: 'main',
               inputs: {
-                repository: 'tiger-docs-mcp-server',
-                ref: '${{ github.ref }}',
-                sha: '${{ github.sha }}'
+                repository: context.repo.repo,
+                sha: context.sha,
               }
             })

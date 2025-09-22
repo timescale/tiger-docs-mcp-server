@@ -13,7 +13,7 @@ jobs:
         with:
           github-token: ${{ secrets.GH_AGENTS_PAT }}
           script: |
-            await github.actions.createWorkflowDispatch({
+            await github.rest.actions.createWorkflowDispatch({
               owner: 'timescale',
               repo: 'tiger-agents-deploy',
               workflow_id: 'build-on-feature-branch.yaml',

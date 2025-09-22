@@ -18,7 +18,6 @@ jobs:
               ref: 'main',
               inputs: {
                 repository: 'tiger-docs-mcp-server',
-                ref: '${{ github.ref }}',
                 sha: '${{ github.sha }}'
               }
             })

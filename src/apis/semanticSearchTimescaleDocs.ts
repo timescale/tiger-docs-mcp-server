@@ -47,7 +47,7 @@ export const semanticSearchTimescaleDocsFactory: ApiFactory<
   typeof inputSchema,
   typeof outputSchema,
   z.infer<(typeof outputSchema)['results']>
-> = ({ pgPool }) => ({
+> = ({ pgPool, schema }) => ({
   name: 'semanticSearchTimescaleDocs',
   method: 'get',
   route: '/semantic-search/timescale-docs',
@@ -71,7 +71,7 @@ SELECT
   content,
   metadata::text,
   embedding <=> $1::vector(1536) AS distance
- FROM docs.timescale_chunks
+ FROM ${schema}.timescale_chunks
  ORDER BY distance
  LIMIT $2
 `,

@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 
+import { schema } from './config.js';
 import { ServerContext } from './types.js';
 
 export const serverInfo = {
@@ -9,4 +10,4 @@ export const serverInfo = {
 
 const pgPool = new Pool();
 
-export const context: ServerContext = { pgPool };
+export const context: ServerContext = { pgPool, schema };

@@ -58,7 +58,7 @@ export const semanticSearchPostgresDocsFactory: ApiFactory<
   typeof inputSchema,
   typeof outputSchema,
   z.infer<(typeof outputSchema)['results']>
-> = ({ pgPool }) => ({
+> = ({ pgPool, schema }) => ({
   name: 'semanticSearchPostgresDocs',
   method: 'get',
   route: '/semantic-search/postgres-docs',
@@ -84,7 +84,7 @@ SELECT
   content,
   token_count::int AS "tokenCount",
   embedding <=> $1::vector(1536) AS distance
- FROM docs.postgres
+ FROM ${schema}.postgres
  WHERE version = $2
  ORDER BY distance
  LIMIT $3

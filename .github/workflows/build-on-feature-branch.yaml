@@ -15,5 +15,5 @@ jobs:
           owner: timescale
           repo: tiger-agents-deploy
           workflow_id: build.yaml
-          ref: 'main'
+          ref: 'mpeveler/feat-run-name'
           inputs: '{"repository": "tiger-docs-mcp-server", "sha": "${{ github.sha }}"}'

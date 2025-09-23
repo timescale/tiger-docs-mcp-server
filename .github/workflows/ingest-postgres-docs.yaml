@@ -34,7 +34,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docbook-xml docbook-xsl libxml2-utils xsltproc fop
 
-      - name: Ingest PostgreSQL ${{ github.event.inputs.version }} docs
+      - name: Ingest PostgreSQL ${{ github.event.inputs.version }} docs for dev
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
@@ -42,4 +42,14 @@ jobs:
           PGDATABASE: ${{ secrets.PGDATABASE }}
           PGUSER: ${{ secrets.PGUSER }}
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
+        run: uv run python postgres_docs.py ${{ github.event.inputs.version }}
+
+      - name: Ingest PostgreSQL ${{ github.event.inputs.version }} docs for prod
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PGHOST: ${{ secrets.PROD_PGHOST }}
+          PGPORT: ${{ secrets.PROD_PGPORT }}
+          PGDATABASE: ${{ secrets.PROD_PGDATABASE }}
+          PGUSER: ${{ secrets.PROD_PGUSER }}
+          PGPASSWORD: ${{ secrets.PROD_PGPASSWORD }}
         run: uv run python postgres_docs.py ${{ github.event.inputs.version }}

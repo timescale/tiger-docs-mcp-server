@@ -26,7 +26,7 @@ jobs:
       - name: Install python dependencies
         run: uv sync
 
-      - name: Ingest Timescale docs
+      - name: Ingest Timescale docs for dev
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
@@ -34,4 +34,14 @@ jobs:
           PGDATABASE: ${{ secrets.PGDATABASE }}
           PGUSER: ${{ secrets.PGUSER }}
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
+        run: uv run python timescale_docs.py
+
+      - name: Ingest Timescale docs for prod
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PGHOST: ${{ secrets.PROD_PGHOST }}
+          PGPORT: ${{ secrets.PROD_PGPORT }}
+          PGDATABASE: ${{ secrets.PROD_PGDATABASE }}
+          PGUSER: ${{ secrets.PROD_PGUSER }}
+          PGPASSWORD: ${{ secrets.PROD_PGPASSWORD }}
         run: uv run python timescale_docs.py

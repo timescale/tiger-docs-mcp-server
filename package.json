@@ -42,7 +42,6 @@
     "gray-matter": "^4.0.3",
     "migrate": "^2.1.0",
     "pg": "^8.16.3",
-    "pg-query-stream": "^4.10.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

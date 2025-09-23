@@ -33,6 +33,5 @@ services:
       - ./tsconfig.json:/app/tsconfig.json
     command: npm run watch:http
 
-
 volumes:
   db_data:

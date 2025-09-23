@@ -15,11 +15,12 @@
   "scripts": {
     "build": "tsc && rm -f dist/prompts/md/* && shx cp -r src/prompts/md dist/prompts/ && shx chmod +x dist/*.js",
     "prepare": "npm run build",
-    "watch": "tsc --watch",
+    "watch": "tsx watch src/index.ts stdio",
     "watch:http": "tsx watch src/index.ts http",
     "start": "node dist/index.js stdio",
     "start:http": "node dist/index.js http",
-    "inspector": "npx @modelcontextprotocol/inspector"
+    "inspector": "npx @modelcontextprotocol/inspector",
+    "migrate": "migrate"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.16",

@@ -5,6 +5,7 @@ import { log } from './shared/boilerplate/src/logger.js';
 import { runMigrations } from './migrate.js';
 import { context, serverInfo } from './serverInfo.js';
 
+log.info('starting server...');
 try {
   log.info('Running database migrations...');
   await runMigrations();

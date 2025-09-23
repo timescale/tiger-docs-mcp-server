@@ -8,6 +8,7 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/home/postgres/pgdata/data
+      - ./docker/tsdb/100_setup_db.sql:/docker-entrypoint-initdb.d/100_setup_db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 1s
@@ -30,7 +31,7 @@ services:
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json
-    command: npm run watch
+    command: npm run watch:http
 
 
 volumes:

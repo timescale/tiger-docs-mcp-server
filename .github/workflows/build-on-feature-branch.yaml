@@ -5,21 +5,15 @@ on:
       - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch build-on-feature-branch workflow
-        uses: actions/github-script@v8
+      - name: Dispatch Workflow
+        uses: timescale/workflow-dispatch-action@main
         with:
           github-token: ${{ secrets.GH_AGENTS_PAT }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: 'timescale',
-              repo: 'tiger-agents-deploy',
-              workflow_id: 'build.yaml',
-              ref: 'main',
-              inputs: {
-                repository: context.repo.repo,
-                sha: context.sha,
-              }
-            })
+          owner: timescale
+          repo: tiger-agents-deploy
+          workflow_id: build.yaml
+          ref: 'main'
+          inputs: '{"repository": "tiger-docs-mcp-server", "sha": "${{ github.sha }}"}'

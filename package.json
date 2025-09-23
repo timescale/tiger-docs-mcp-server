@@ -13,7 +13,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && shx cp -r src/prompts/md dist/prompts/ && shx chmod +x dist/*.js",
+    "build": "tsc && rm -f dist/prompts/md/* && shx cp -r src/prompts/md dist/prompts/ && shx chmod +x dist/*.js",
     "prepare": "npm run build",
     "watch": "tsc --watch",
     "watch:http": "tsx watch src/index.ts http",

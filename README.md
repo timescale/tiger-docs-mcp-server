@@ -123,38 +123,4 @@ Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config
 
 ## Deployment
 
-We use a Helm chart to deploy to Kubernetes. See the `chart/` directory for details.
-
-The service is accessible to other services in the cluster via the DNS name `tiger-docs-mcp-server.savannah-system.svc.cluster.local`.
-
-### Secrets
-
-Run the following to create the necessary sealed secrets. Be sure to fill in the correct values.
-
-```bash
-kubectl -n savannah-system create secret generic tiger-docs-mcp-server-database \
-  --dry-run=client \
-  --from-literal=user="readonly_mcp_user" \
-  --from-literal=password="abv123" \
-  --from-literal=database="tsdb" \
-  --from-literal=host="x.y.tsdb.cloud.timescale.com" \
-  --from-literal=port="32467" \
-  -o yaml | kubeseal -o yaml
-
-kubectl -n savannah-system create secret generic tiger-docs-mcp-server-openai \
-  --dry-run=client \
-  --from-literal=apiKey="sk-svcacct" \
-  -o yaml | kubeseal -o yaml
-
-kubectl -n savannah-system create secret generic tiger-docs-mcp-server-logfire \
-  --dry-run=client \
-  --from-literal=token="pylf_v1_us_" \
-  -o yaml | kubeseal -o yaml
-
-kubectl -n savannah-system create secret generic tiger-docs-mcp-server-tailscale \
-  --dry-run=client \
-  --from-literal=authkey="tskey-auth-" \
-  -o yaml | kubeseal -o yaml
-```
-
-Update `./chart/values/dev.yaml` with the output.
+See [here](https://github.com/timescale/tiger-agents-deploy/tree/main/charts/tiger-docs-mcp-server) for our deployment setup.

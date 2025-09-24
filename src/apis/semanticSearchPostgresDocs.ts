@@ -28,18 +28,12 @@ const zEmbeddedDoc = z.object({
     .number()
     .int()
     .describe('The unique identifier of the documentation entry.'),
-  headerPath: z
-    .array(z.string())
-    .describe('The path to the header of the documentation entry.'),
-  sourceUrl: z
-    .string()
-    .nullable()
-    .describe('The URL of the documentation entry.'),
   content: z.string().describe('The content of the documentation entry.'),
-  tokenCount: z
-    .number()
-    .int()
-    .describe('The number of tokens in the documentation entry.'),
+  metadata: z
+    .string()
+    .describe(
+      'Additional metadata about the documentation entry, as a JSON encoded string.',
+    ),
   distance: z
     .number()
     .describe(
@@ -78,14 +72,13 @@ export const semanticSearchPostgresDocsFactory: ApiFactory<
     const result = await pgPool.query<EmbeddedDoc>(
       /* sql */ `
 SELECT
-  id::int,
-  header_path AS "headerPath",
-  source_url AS "sourceUrl",
-  content,
-  token_count::int AS "tokenCount",
-  embedding <=> $1::vector(1536) AS distance
- FROM ${schema}.postgres
- WHERE version = $2
+  c.id::int,
+  c.content,
+  c.metadata::text,
+  c.embedding <=> $1::vector(1536) AS distance
+ FROM ${schema}.postgres_chunks c
+ JOIN ${schema}.postgres_pages p ON c.page_id = p.id
+ WHERE p.version = $2
  ORDER BY distance
  LIMIT $3
 `,

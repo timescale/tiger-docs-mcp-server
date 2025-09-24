@@ -3,3 +3,4 @@ node_modules
 .env
 ingest/build
 ingest/postgres
+.idea

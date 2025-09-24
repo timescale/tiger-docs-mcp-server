@@ -1,4 +1,5 @@
 name: Ingest PostgreSQL Docs
+run-name: Ingest PostgreSQL ${{ inputs.version }} Docs
 
 on:
   workflow_dispatch:

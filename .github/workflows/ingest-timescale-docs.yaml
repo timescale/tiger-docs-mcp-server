@@ -1,17 +1,25 @@
 name: Ingest Timescale Docs
+
 on:
   schedule:
     - cron: '0 2 * * 0'
   workflow_dispatch:
 
 jobs:
-  ingest:
+  ingest-dev:
     name: Ingest Timescale Docs
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ingest
-    steps:
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PGHOST: ${{ secrets.PGHOST }}
+      PGPORT: ${{ secrets.PGPORT }}
+      PGDATABASE: ${{ secrets.PGDATABASE }}
+      PGUSER: ${{ secrets.PGUSER }}
+      PGPASSWORD: ${{ secrets.PGPASSWORD }}
+    steps: &ingest-steps
       - name: Checkout repository
         uses: actions/checkout@v5
 
@@ -26,22 +34,20 @@ jobs:
       - name: Install python dependencies
         run: uv sync
 
-      - name: Ingest Timescale docs for dev
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PGHOST: ${{ secrets.PGHOST }}
-          PGPORT: ${{ secrets.PGPORT }}
-          PGDATABASE: ${{ secrets.PGDATABASE }}
-          PGUSER: ${{ secrets.PGUSER }}
-          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+      - name: Ingest Timescale docs
         run: uv run python timescale_docs.py
 
-      - name: Ingest Timescale docs for prod
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PGHOST: ${{ secrets.PROD_PGHOST }}
-          PGPORT: ${{ secrets.PROD_PGPORT }}
-          PGDATABASE: ${{ secrets.PROD_PGDATABASE }}
-          PGUSER: ${{ secrets.PROD_PGUSER }}
-          PGPASSWORD: ${{ secrets.PROD_PGPASSWORD }}
-        run: uv run python timescale_docs.py
+  ingest-prod:
+    name: Ingest Timescale Docs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ingest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PGHOST: ${{ secrets.PROD_PGHOST }}
+      PGPORT: ${{ secrets.PROD_PGPORT }}
+      PGDATABASE: ${{ secrets.PROD_PGDATABASE }}
+      PGUSER: ${{ secrets.PROD_PGUSER }}
+      PGPASSWORD: ${{ secrets.PROD_PGPASSWORD }}
+    steps: *ingest-steps

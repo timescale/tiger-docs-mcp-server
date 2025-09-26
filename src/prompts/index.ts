@@ -29,3 +29,26 @@ function loadPrompts() {
 }
 
 export const prompts = loadPrompts();
+
+export const promptFactories = Array.from(prompts.entries()).map(([name, promptData]) => 
+  () => ({
+    name,
+    config: {
+      title: promptData.title,
+      description: promptData.description,
+      inputSchema: {}, // No arguments for static prompts
+    },
+    fn: async () => ({
+      description: promptData.description || promptData.title || name,
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: promptData.content,
+          },
+        },
+      ],
+    }),
+  })
+);

@@ -1,4 +1,4 @@
-name: Ingest Timescale Docs
+name: Ingest Tiger Docs
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   ingest-dev:
-    name: Ingest Timescale Docs
+    name: Ingest Tiger Docs
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,11 +34,11 @@ jobs:
       - name: Install python dependencies
         run: uv sync
 
-      - name: Ingest Timescale docs
-        run: uv run python timescale_docs.py
+      - name: Ingest Tiger docs
+        run: uv run python tiger_docs.py
 
   ingest-prod:
-    name: Ingest Timescale Docs
+    name: Ingest Tiger Docs
     runs-on: ubuntu-latest
     defaults:
       run:

@@ -28,7 +28,7 @@ if not os.path.exists(os.path.join(script_dir, 'build')):
 load_dotenv(dotenv_path=os.path.join(script_dir, '..', '.env'))
 schema = 'docs'
 
-with open(os.path.join(script_dir, 'timescale_docs_config.toml'), 'rb') as config_fp:
+with open(os.path.join(script_dir, 'tiger_docs_config.toml'), 'rb') as config_fp:
     config = tomllib.load(config_fp)
     DOMAIN_SELECTORS = config['domain_selectors']
     DEFAULT_SELECTORS = config['default_selectors']

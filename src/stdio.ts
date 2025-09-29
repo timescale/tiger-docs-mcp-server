@@ -32,5 +32,6 @@ stdioServerFactory({
   ...serverInfo,
   context,
   apiFactories,
-  promptFactories,
+  // TODO: Add prompt support to boilerplate
+  // promptFactories,
 });

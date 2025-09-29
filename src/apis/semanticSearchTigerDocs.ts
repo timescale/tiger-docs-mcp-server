@@ -14,7 +14,7 @@ const inputSchema = {
     .string()
     .min(1)
     .describe(
-      'The natural language query used to search the TimescaleDB documentation for relevant information.',
+      'The natural language query used to search the documentation for relevant information.',
     ),
 } as const;
 
@@ -42,19 +42,19 @@ const outputSchema = {
   results: z.array(zEmbeddedDoc),
 } as const;
 
-export const semanticSearchTimescaleDocsFactory: ApiFactory<
+export const semanticSearchTigerDocsFactory: ApiFactory<
   ServerContext,
   typeof inputSchema,
   typeof outputSchema,
   z.infer<(typeof outputSchema)['results']>
 > = ({ pgPool, schema }) => ({
-  name: 'semanticSearchTimescaleDocs',
+  name: 'semanticSearchTigerDocs',
   method: 'get',
-  route: '/semantic-search/timescale-docs',
+  route: '/semantic-search/tiger-docs',
   config: {
-    title: 'Semantic Search of TimescaleDB Documentation Embeddings',
+    title: 'Semantic Search of Tiger Documentation Embeddings',
     description:
-      'This retrieves relevant TimescaleDB documentation entries based on a natural language query.',
+      'This retrieves relevant documentation entries based on a natural language query. The content covers Tiger Cloud and TimescaleDB topics.',
     inputSchema,
     outputSchema,
   },

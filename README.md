@@ -1,8 +1,6 @@
 # Tiger Docs MCP Server
 
-A wrapper around our `slack-db` database, which contains embedded PostgreSQL documentation. This provides some focused tools to LLMs via the [Model Context Protocol](https://modelcontextprotocol.io/introduction).
-
-See [slack-db](https://github.com/timescale/slack-db/) for details on how the database is populated.
+A collection of tools to ingest the PostgreSQL and TigerData documentation into a database, chunk and generate vector embeddings, and provide a set of semantic search tools via the [Model Context Protocol](https://modelcontextprotocol.io/introduction). In addition, we have included some helpful development guides. These can be consumed by an LLM to better answer questions about PostgreSQL, TimescaleDB, and Tiger Cloud, with links to the relevant documentation. This also improves its ability to generate correct SQL queries.
 
 ## API
 

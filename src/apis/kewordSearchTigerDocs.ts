@@ -32,7 +32,7 @@ const zEmbeddedDoc = z.object({
   score: z
     .number()
     .describe(
-      'The score indicating the relevance of the entry to the keywords. Lower values indicate higher relevance.',
+      'The score indicating the relevance of the entry to the keywords. Higher values indicate higher relevance.',
     ),
 });
 
@@ -66,9 +66,9 @@ SELECT
   id::int,
   content,
   metadata::text,
-  content <@> to_tpquery($1, 'docs.timescale_chunks_content_idx') as score
+  -(content <@> to_tpquery($1, 'docs.timescale_chunks_content_idx')) as score
  FROM ${schema}.timescale_chunks
- ORDER BY score
+ ORDER BY content <@> to_tpquery($1, 'docs.timescale_chunks_content_idx')
  LIMIT $2
 `,
       [keywords, limit || 10],

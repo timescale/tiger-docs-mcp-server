@@ -28,6 +28,11 @@ const createStateStore = () => {
           MIGRATION_ADVISORY_LOCK_ID,
         ]);
 
+        // Ensure schema exists
+        await client.query(/* sql */ `
+          CREATE SCHEMA IF NOT EXISTS ${schema};
+        `);
+        
         // Ensure migrations table exists
         await client.query(/* sql */ `
           CREATE TABLE IF NOT EXISTS ${schema}.migrations (

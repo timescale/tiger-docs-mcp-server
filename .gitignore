@@ -4,3 +4,4 @@ node_modules
 ingest/build
 ingest/postgres
 .idea
+.migrate

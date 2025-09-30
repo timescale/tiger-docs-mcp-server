@@ -48,7 +48,7 @@ export const keywordSearchTigerDocsFactory: ApiFactory<
   typeof outputSchema,
   z.infer<(typeof outputSchema)['results']>
 > = ({ pgPool, schema }) => ({
-  name: 'keywordSearchTigerDocs',
+  name: 'keyword_search_tiger_docs',
   method: 'get',
   route: '/keyword-search/tiger-docs',
   config: {

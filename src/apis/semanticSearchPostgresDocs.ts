@@ -53,7 +53,7 @@ export const semanticSearchPostgresDocsFactory: ApiFactory<
   typeof outputSchema,
   z.infer<(typeof outputSchema)['results']>
 > = ({ pgPool, schema }) => ({
-  name: 'semanticSearchPostgresDocs',
+  name: 'semantic_search_postgres_docs',
   method: 'get',
   route: '/semantic-search/postgres-docs',
   config: {

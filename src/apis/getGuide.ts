@@ -22,7 +22,7 @@ export const getPromptContentFactory: ApiFactory<
   typeof inputSchema,
   typeof outputSchema
 > = () => ({
-  name: 'getGuide',
+  name: 'get_guide',
   config: {
     title: 'Get TimescaleDB Guide',
     description: `Retrieve detailed TimescaleDB guides and best practices.

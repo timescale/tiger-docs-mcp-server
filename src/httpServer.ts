@@ -21,4 +21,5 @@ export const { registerCleanupFn } = httpServerFactory({
   context,
   apiFactories,
   promptFactories,
+  stateful: false,
 });

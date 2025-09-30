@@ -48,7 +48,7 @@ export const semanticSearchTigerDocsFactory: ApiFactory<
   typeof outputSchema,
   z.infer<(typeof outputSchema)['results']>
 > = ({ pgPool, schema }) => ({
-  name: 'semanticSearchTigerDocs',
+  name: 'semantic_search_tiger_docs',
   method: 'get',
   route: '/semantic-search/tiger-docs',
   config: {

@@ -19,7 +19,8 @@ jobs:
           inputs: >
             {
               "repository": "tiger-docs-mcp-server",
-              "sha": "${{ github.sha }}"
+              "sha": "${{ github.sha }}",
+              "latest": true
             }
 
   deploy:

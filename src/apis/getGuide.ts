@@ -5,16 +5,16 @@ import { prompts } from '../prompts/index.js';
 
 // Create enum schema dynamically
 const inputSchema = {
-  prompt_name: z
+  guide_name: z
     .enum(Array.from(prompts.keys()) as [string, ...string[]])
-    .describe('The name of the prompt to retrieve'),
+    .describe('The name of the guide to retrieve'),
 } as const;
 
 const outputSchema = {
-  prompt_name: z.string().describe('The name of the requested prompt'),
-  title: z.string().describe('The display title of the prompt'),
-  description: z.string().describe('Description of what this prompt does'),
-  content: z.string().describe('The full prompt content'),
+  guide_name: z.string().describe('The name of the requested guide'),
+  title: z.string().describe('The display title of the guide'),
+  description: z.string().describe('Description of what this guide does'),
+  content: z.string().describe('The full guide content'),
 } as const;
 
 export const getPromptContentFactory: ApiFactory<
@@ -34,15 +34,15 @@ ${Array.from(prompts.values()).map(p => `**${p.name}** - ${p.description}`).join
     inputSchema,
     outputSchema,
   },
-  fn: async ({ prompt_name }) => {
-    const prompt = prompts.get(prompt_name);
+  fn: async ({ guide_name }) => {
+    const prompt = prompts.get(guide_name);
 
     if (!prompt) {
-      throw new Error(`Prompt '${prompt_name}' not found`);
+      throw new Error(`Guide '${guide_name}' not found`);
     }
 
     return {
-      prompt_name: prompt.name,
+      guide_name: prompt.name,
       title: prompt.title || prompt.name,
       description: prompt.description || '',
       content: prompt.content,

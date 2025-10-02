@@ -28,7 +28,8 @@ CREATE TABLE your_table_name (
     tsdb.partition_column='timestamp',
     tsdb.enable_columnstore=true,     -- Disable if table has vector columns
     tsdb.segmentby='entity_id',       -- See selection guide below
-    tsdb.orderby='timestamp DESC'     -- See selection guide below
+    tsdb.orderby='timestamp DESC',     -- See selection guide below
+    tsdb.sparse_index='bloom(category),minmax(value_1),minmax(value_2),minmax(value_3)' -- see selection guide below
 );
 ```
 
@@ -101,6 +102,41 @@ If a column has <100 rows per chunk (too low for segment_by), prepend it to orde
 
 **Avoid in order_by:** random columns, columns with high variance between adjacent rows, columns unrelated to segment_by
 
+### Compression Sparse Index Selection
+
+**Sparse indexes** enable query filtering on compressed data without decompression. Store metadata per batch (~1000 rows) to eliminate batches that don't match query predicates.
+
+**Types:**
+- **minmax:** Min/max values per batch - for range queries (>, <, BETWEEN) on numeric/temporal columns
+- **bloom:** Probabilistic filter - for equality queries (=, IN) on high-cardinality categorical columns
+
+**Use minmax for:** price, temperature, measurement, timestamp (range filtering)
+**Use bloom for:** device_id, user_id, category, region (equality filtering)
+
+**Use for:**
+- minmax for outlier detection (temperature > 90).
+- minmax for fields that are highly correlated with segmentby and orderby columns (e.g. if orderby includes `created_at`, minmax on `updated_at` is useful).
+- minmax for any field used in chunk skipping.
+- bloom for high-cardinality/highly selective columns (device_id, user_id, category, region).
+
+**Avoid:** rarely filtered columns.
+
+IMPORTANT: NEVER index columns in segmentby or orderby. Orderby columns will always have minmax indexes without any configuration.
+
+**Configuration:**
+The format is a comma-separated list of type_of_index(column_name).
+
+```sql
+ALTER TABLE table_name SET (
+    timescaledb.sparse_index = 'bloom(category),minmax(value_1),minmax(value_2)'
+);
+```
+Explicit configuration available since v2.22.0 (was auto-created since v2.16.0).
+
+**Good defaults exist** - only configure if you have specific needs such as:
+- Integer columns default to bloom, but if performing range queries need to change to minmax
+- Many columns exist but only few queried (specify only those needed)
+
 ### Chunk Time Interval (Optional)
 Default: 7 days (use if volume unknown, or ask user). Adjust based on volume:
 - High frequency: 1 hour - 1 day
@@ -119,6 +155,8 @@ Common index patterns - composite indexes on an id and timestamp:
 ```sql
 CREATE INDEX idx_entity_timestamp ON your_table_name (entity_id, timestamp DESC);
 ```
+
+**Important:** Only create indexes you'll actually use - each has maintenance overhead.
 
 **Primary key and unique constraints rules:** Must include partition column.
 
@@ -202,7 +240,7 @@ GROUP BY bucket, entity_id, category;
 
 Set up refresh policies based on your data freshness requirements.
 
-**start_offset:** Usually omit (refreshes all). With retention policy on raw data: match the retention policy. Exception: if you don't care about refreshing data older than X (see below).
+**start_offset:** Usually omit (refreshes all). Exception: If you don't care about refreshing data older than X (see below). With retention policy on raw data: match the retention policy.
 
 **end_offset:** Set beyond active update window (e.g., 15 min if data usually arrives within 10 min). Data newer than end_offset won't appear in queries without real-time aggregation. If you don't know your update window, use the size of the time_bucket in the query, but not less than 5 minutes.
 

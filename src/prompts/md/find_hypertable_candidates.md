@@ -87,8 +87,8 @@ WHERE query ILIKE '%your_table_name%'
 ORDER BY total_exec_time DESC LIMIT 20;
 ```
 
-**Good patterns:** Time-based WHERE, entity filtering combined with time-based qualifiers, GROUP BY time_bucket, range queries over time
-**Poor patterns:** Non-time lookups with no time-based qualifiers in same query (WHERE email = ...)
+**✅ Good patterns:** Time-based WHERE, entity filtering combined with time-based qualifiers, GROUP BY time_bucket, range queries over time
+**❌ Poor patterns:** Non-time lookups with no time-based qualifiers in same query (WHERE email = ...)
 
 #### Constraints
 ```sql
@@ -188,11 +188,11 @@ See the `migrate_to_hypertables` guide for details.
 
 ### ✅ GOOD Candidates
 
-**Event/Log Tables** (user_events, audit_logs)
+**✅ Event/Log Tables** (user_events, audit_logs)
 ```sql
 CREATE TABLE user_events (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT, 
+    user_id BIGINT,
     event_type TEXT,
     event_time TIMESTAMPTZ DEFAULT NOW(),
     metadata JSONB
@@ -200,35 +200,35 @@ CREATE TABLE user_events (
 -- Partition by id, segment by user_id, enable chunk skipping and minmax sparse_index on event_time
 ```
 
-**Sensor/IoT Data** (sensor_readings, telemetry)
+**✅ Sensor/IoT Data** (sensor_readings, telemetry)
 ```sql
 CREATE TABLE sensor_readings (
-    device_id TEXT, 
+    device_id TEXT,
     timestamp TIMESTAMPTZ,
-    temperature DOUBLE PRECISION, 
+    temperature DOUBLE PRECISION,
     humidity DOUBLE PRECISION
 );
 -- Partition by timestamp, segment by device_id, minmax sparse indexes on temperature and humidity
 ```
 
-**Financial/Trading** (stock_prices, transactions)
+**✅ Financial/Trading** (stock_prices, transactions)
 ```sql
 CREATE TABLE stock_prices (
-    symbol VARCHAR(10), 
+    symbol VARCHAR(10),
     price_time TIMESTAMPTZ,
-    open_price DECIMAL, 
-    close_price DECIMAL, 
+    open_price DECIMAL,
+    close_price DECIMAL,
     volume BIGINT
 );
 -- Partition by price_time, segment by symbol, minmax sparse indexes on open_price and close_price and volume
 ```
 
-**System Metrics** (monitoring_data)
+**✅ System Metrics** (monitoring_data)
 ```sql
 CREATE TABLE system_metrics (
-    hostname TEXT, 
+    hostname TEXT,
     metric_time TIMESTAMPTZ,
-    cpu_usage DOUBLE PRECISION, 
+    cpu_usage DOUBLE PRECISION,
     memory_usage BIGINT
 );
 -- Partition by metric_time, segment by hostname, minmax sparse indexes on cpu_usage and memory_usage
@@ -236,7 +236,7 @@ CREATE TABLE system_metrics (
 
 ### ❌ POOR Candidates
 
-**Reference Tables** (countries, categories)
+**❌ Reference Tables** (countries, categories)
 ```sql
 CREATE TABLE countries (
     id SERIAL PRIMARY KEY,
@@ -246,18 +246,18 @@ CREATE TABLE countries (
 -- Static data, no time component
 ```
 
-**User Profiles** (users, accounts)
+**❌ User Profiles** (users, accounts)
 ```sql
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     email VARCHAR(255),
-    created_at TIMESTAMPTZ,  
-    updated_at TIMESTAMPTZ 
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ
 );
 -- Accessed by ID, frequently updated, has timestamp but it's not the primary query dimension (the primary query dimension is id or email)
 ```
 
-**Settings/Config** (user_settings)
+**❌ Settings/Config** (user_settings)
 ```sql
 CREATE TABLE user_settings (
     user_id BIGINT PRIMARY KEY,

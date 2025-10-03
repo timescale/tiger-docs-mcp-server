@@ -133,10 +133,6 @@ ALTER TABLE table_name SET (
 ```
 Explicit configuration available since v2.22.0 (was auto-created since v2.16.0).
 
-**Good defaults exist** - only configure if you have specific needs such as:
-- Integer columns default to bloom, but if performing range queries need to change to minmax
-- Many columns exist but only few queried (specify only those needed)
-
 ### Chunk Time Interval (Optional)
 Default: 7 days (use if volume unknown, or ask user). Adjust based on volume:
 - High frequency: 1 hour - 1 day

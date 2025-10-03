@@ -5,483 +5,259 @@ description: Analyze an existing PostgreSQL database to identify tables that wou
 
 # PostgreSQL Hypertable Candidate Analysis Guide
 
-You are tasked with analyzing an existing PostgreSQL database to identify tables that would benefit from conversion to TimescaleDB hypertables. This guide provides comprehensive analysis criteria and scoring methodology to identify optimal candidates for hypertable migration.
+Identify tables that would benefit from TimescaleDB hypertable conversion. After identification, use the companion "migrate_to_hypertables" guide for configuration and migration.
 
-**Next Steps**: After identifying candidate tables with this document, use the companion "PostgreSQL to TimescaleDB Hypertable Migration Guide" to complete the optimal configuration, migration planning, and performance validation steps.
+## TimescaleDB Benefits
 
-## Analysis Overview
+**Performance gains:** 90%+ compression, fast time-based queries, improved insert performance, efficient aggregations, continuous aggregates for materialization (dashboards, reports, analytics), automatic data management (retention, compression).
 
-TimescaleDB hypertables provide significant performance benefits including:
+**Best for insert-heavy patterns:**
+- Time-series data (sensors, metrics, monitoring)
+- Event logs (user events, audit trails, application logs)
+- Transaction records (orders, payments, financial)
+- Sequential data (auto-incrementing IDs with timestamps)
+- Append-only datasets (immutable records, historical)
 
-- **90%+ compression** for insert-heavy data using columnstore compression
-- **Fast time-based queries** through automatic chunk exclusion
-- **Improved insert performance** by partitioning large tables into smaller chunks
-- **Efficient aggregations** over time windows with compressed data
-- **Continuous aggregates** for pre-calculating and materializing complex time-based aggregations (dashboards, reports, analytics)
-- **Automatic data management** with policies for compression and retention
-
-These benefits are most effective for tables with:
-- **Insert-heavy data patterns** where data is inserted but rarely changed, including:
-  - Time-series data (sensors, metrics, system monitoring)
-  - Event logs (user events, audit trails, application logs)
-  - Transaction records (orders, payments, financial transactions)
-  - Sequential data (records with auto-incrementing IDs and timestamps)
-  - Append-only datasets (immutable records, historical data)
-- Large data volumes (millions+ rows)
-- Frequent time-based queries
+**Requirements:** Large volumes (1M+ rows), time-based queries, infrequent updates
 
 ## Step 1: Database Schema Analysis
 
 ### Option A: From Database Connection
 
-#### Analyze table statistics
-
+#### Table statistics and size
 ```sql
--- Get all tables with their row counts and key statistics
+-- Get all tables with row counts and insert/update patterns
 WITH table_stats AS (
-    SELECT 
-        schemaname,
-        tablename,
+    SELECT
+        schemaname, tablename,
         n_tup_ins as total_inserts,
         n_tup_upd as total_updates,
         n_tup_del as total_deletes,
         n_live_tup as live_rows,
-        n_dead_tup as dead_rows,
-        last_vacuum,
-        last_autovacuum,
-        last_analyze,
-        last_autoanalyze
+        n_dead_tup as dead_rows
     FROM pg_stat_user_tables
 ),
 table_sizes AS (
-    SELECT 
-        schemaname,
-        tablename,
+    SELECT
+        schemaname, tablename,
         pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as total_size,
         pg_total_relation_size(schemaname||'.'||tablename) as total_size_bytes
-    FROM pg_tables 
+    FROM pg_tables
     WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
 )
-SELECT 
-    ts.schemaname,
-    ts.tablename,
-    ts.live_rows,
-    tsize.total_size,
-    tsize.total_size_bytes,
-    ts.total_inserts,
-    ts.total_updates,
-    ts.total_deletes,
-    ROUND(
-        CASE 
-            WHEN ts.live_rows > 0 
-            THEN (ts.total_inserts::float / ts.live_rows) * 100 
-            ELSE 0 
-        END, 2
-    ) as insert_ratio_pct
+SELECT
+    ts.schemaname, ts.tablename, ts.live_rows,
+    tsize.total_size, tsize.total_size_bytes,
+    ts.total_inserts, ts.total_updates, ts.total_deletes,
+    ROUND(CASE WHEN ts.live_rows > 0
+          THEN (ts.total_inserts::float / ts.live_rows) * 100
+          ELSE 0 END, 2) as insert_ratio_pct
 FROM table_stats ts
 JOIN table_sizes tsize ON ts.schemaname = tsize.schemaname AND ts.tablename = tsize.tablename
 ORDER BY tsize.total_size_bytes DESC;
+```
 
--- Analyze index patterns to identify common query dimensions
-SELECT 
-    schemaname,
-    tablename,
-    indexname,
-    indexdef
-FROM pg_indexes 
+**Look for:**
+- mostly insert-heavy patterns (less updates/deletes)
+- big tables (1M+ rows or 100MB+)
+
+#### Index patterns
+```sql
+-- Identify common query dimensions
+SELECT schemaname, tablename, indexname, indexdef
+FROM pg_indexes
 WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
 ORDER BY tablename, indexname;
 ```
 
-**Look for these index patterns:**
-- **Multiple indexes containing timestamp/created_at columns** - suggests time-based queries
-- **Composite indexes with (entity_id, timestamp) pattern** - good hypertable candidates  
-- **Time-only indexes** - indicates time range filtering is common
+**Look for:**
+- Multiple indexes with timestamp/created_at columns → time-based queries
+- Composite (entity_id, timestamp) indexes → good candidates
+- Time-only indexes → time range filtering common
 
-#### Analyze query patterns
-
-Check if pg_stat_statements is available:
-
+#### Query patterns (if pg_stat_statements available)
 ```sql
-SELECT EXISTS (
-    SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'
-) as has_pg_stat_statements;
-```
+-- Check availability
+SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements');
 
-If available, analyze most expensive queries for candidate tables
-```sql
-SELECT 
-    query,
-    calls,
-    mean_exec_time,
-    total_exec_time
-FROM pg_stat_statements 
+-- Analyze expensive queries for candidate tables
+SELECT query, calls, mean_exec_time, total_exec_time
+FROM pg_stat_statements
 WHERE query ILIKE '%your_table_name%'
-ORDER BY total_exec_time DESC
-LIMIT 20;
+ORDER BY total_exec_time DESC LIMIT 20;
 ```
 
-**What to look for in query patterns:**
-- ✅ **Time-based WHERE clauses** (`WHERE timestamp >= ...`) - Good
-- ✅ **Entity-based filtering** (`WHERE device_id = ...`) - Good  
-- ✅ **Aggregation queries** (`GROUP BY time_bucket(...)`) - Good
-- ✅ **Range queries over time periods** - Good
-- ❌ **Non-time-based lookups** (`WHERE email = ...`) - Poor
+**✅ Good patterns:** Time-based WHERE, entity filtering combined with time-based qualifiers, GROUP BY time_bucket, range queries over time
+**❌ Poor patterns:** Non-time lookups with no time-based qualifiers in same query (WHERE email = ...)
 
-#### Analyze constraints
-
+#### Constraints
 ```sql
-
--- Check all constraints for migration compatibility
-SELECT 
-    conname,
-    contype,
-    pg_get_constraintdef(oid) as definition
-FROM pg_constraint 
+-- Check migration compatibility
+SELECT conname, contype, pg_get_constraintdef(oid) as definition
+FROM pg_constraint
 WHERE conrelid = 'your_table_name'::regclass;
 ```
 
-**Migration compatibility notes:**
-- **Primary keys (p)**: Must include partition column or get user permission to modify
-- **Foreign keys (f)**: Plain→Hypertable and Hypertable→Plain FKs are supported. Only Hypertable→Hypertable FKs are NOT supported - check if any target tables are also hypertables
-- **Unique constraints (u)**: Must include partition column or can be dropped
-- **Check constraints (c)**: Usually no issues
+**Compatibility:**
+- Primary keys (p): Must include partition column or ask user if can be modified
+- Foreign keys (f): Plain→Hypertable and Hypertable→Plain OK, Hypertable→Hypertable NOT supported
+- Unique constraints (u): Must include partition column or ask user if can be modified
+- Check constraints (c): Usually OK
 
 ### Option B: From Code Analysis
 
-When analyzing existing application code without database access, look for these patterns:
-
-#### Analyze query patterns
-
-**✅ GOOD Hypertable Candidates - Query Patterns:**
-
+#### ✅ GOOD Patterns
 ```python
-# PATTERN 1: Append-only logging/events
-def log_user_event(user_id, event_type, metadata):
-    db.execute("""
-        INSERT INTO user_events (user_id, event_type, event_time, metadata)
-        VALUES (%s, %s, NOW(), %s)
-    """, [user_id, event_type, metadata])
-    # ✅ Only INSERTs, no UPDATEs to historical records
-
-# PATTERN 2: Sensor/metrics collection  
-def record_sensor_reading(device_id, temperature, humidity):
-    db.execute("""
-        INSERT INTO sensor_readings (device_id, timestamp, temperature, humidity)
-        VALUES (%s, %s, %s, %s)
-    """, [device_id, datetime.now(), temperature, humidity])
-    # ✅ Time-series data, chronological inserts
-
-# PATTERN 3: Time-based queries dominate
-def get_recent_metrics(device_id, hours=24):
-    return db.query("""
-        SELECT * FROM system_metrics 
-        WHERE device_id = %s 
-          AND timestamp >= NOW() - INTERVAL '%s hours'
-        ORDER BY timestamp DESC
-    """, [device_id, hours])
-    # ✅ Queries filter by time ranges
-
-# PATTERN 4: Aggregations over time windows
-def daily_summary(start_date, end_date):
-    return db.query("""
-        SELECT 
-            DATE_TRUNC('day', event_time) as day,
-            COUNT(*) as events,
-            COUNT(DISTINCT user_id) as unique_users
-        FROM user_events
-        WHERE event_time BETWEEN %s AND %s
-        GROUP BY 1 ORDER BY 1
-    """, [start_date, end_date])
-    # ✅ Time-bucket aggregations
+# Append-only logging
+INSERT INTO events (user_id, event_time, data) VALUES (...);
+# Time-series collection
+INSERT INTO metrics (device_id, timestamp, value) VALUES (...);
+# Time-based queries
+SELECT * FROM metrics WHERE timestamp >= NOW() - INTERVAL '24 hours';
+# Time aggregations
+SELECT DATE_TRUNC('day', timestamp), COUNT(*) GROUP BY 1;
 ```
 
-**❌ POOR Hypertable Candidates - Query Patterns:**
-
+#### ❌ POOR Patterns
 ```python
-# ANTI-PATTERN 1: Frequent UPDATEs to historical records
-def update_user_profile(user_id, email, name):
-    db.execute("""
-        UPDATE users 
-        SET email = %s, name = %s, updated_at = NOW()
-        WHERE id = %s
-    """, [email, name, user_id])
-    # ❌ Updates historical records frequently
-
-# ANTI-PATTERN 2: Non-time-based access patterns
-def get_user_by_email(email):
-    return db.query("SELECT * FROM users WHERE email = %s", [email])
-    # ❌ Queries by email, not time ranges
-
-# ANTI-PATTERN 3: Frequent updates to many fields
-def update_user_preferences(user_id, theme, language, notifications):
-    db.execute("""
-        UPDATE user_settings 
-        SET theme = %s, language = %s, notifications = %s, updated_at = NOW()
-        WHERE user_id = %s
-    """, [theme, language, notifications, user_id])
-    # ❌ Frequent updates to multiple fields, not append-mostly pattern
-
-# ANTI-PATTERN 4: Small reference data
-def get_all_countries():
-    return db.query("SELECT * FROM countries ORDER BY name")
-    # ❌ Static reference data, small table
+# Frequent updates to historical records
+UPDATE users SET email = ..., updated_at = NOW() WHERE id = ...;
+# Non-time lookups
+SELECT * FROM users WHERE email = ...;
+# Small reference tables
+SELECT * FROM countries ORDER BY name;
 ```
 
-###  Schema Definition Analysis:
+#### Schema Indicators
 
-Look for these patterns in CREATE TABLE statements and index definitions:
+**✅ GOOD:**
+- Has timestamp/timestamptz column
+- Multiple indexes with timestamp-based columns
+- Composite (entity_id, timestamp) indexes
 
-**✅ GOOD Schema Patterns:**
+**❌ POOR:**
+- Mostly indexes with non-time-based columns (on columns like email, name, status, etc.)
+- Columns that you expect to be updated over time (updated_at, updated_by, status, etc.)
+- Unique constraints on non-time fields
+- Frequent updated_at modifications
+- Small static tables
 
-```sql
--- ✅ GOOD: Time-series schema patterns
-CREATE TABLE events (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    event_type VARCHAR(50),
-    timestamp TIMESTAMPTZ DEFAULT NOW(),  -- Time column
-    session_id UUID,
-    data JSONB                           -- Flexible payload
-);
--- ✅ Has timestamp, likely append-only based on schema
+#### Special Case: ID-Based Tables
 
--- ✅ GOOD: Index patterns indicating hypertable candidates
-CREATE INDEX idx_events_user_time ON events (user_id, event_time DESC);
-CREATE INDEX idx_events_time ON events (event_time DESC);
-CREATE INDEX idx_events_type_time ON events (event_type, event_time DESC);
--- ✅ Multiple indexes contain event_time - suggests frequent time-based queries
-```
-
-**❌ POOR Schema Patterns:**
+Sequential ID tables can be candidates if:
+- Insert-mostly pattern / updates are either infrequent or only on recent records.
+- If updates do happen, they occur on recent records (such as an order status being updated orderered->processing->delivered. Note once an order is delivered, it is unlikely to be updated again.)
+- IDs correlate with time (as is the case for serial/auto-incrementing IDs/GENERATED ALWAYS AS IDENTITY)
+- ID is the primary query dimension
+- Recent data accessed more often (frequently the case in ecommerce, finance, etc.)
+- Time-based reporting common (e.g. monthly, daily summaries/analytics)
 
 ```sql
--- ❌ POOR: Mutable entity schemas  
-CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE,           -- Queries by email
-    password_hash VARCHAR(255),
-    name VARCHAR(100),
-    status VARCHAR(20) DEFAULT 'active', -- Status changes
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW() -- Frequent updates
-);
--- ❌ Profile data, accessed by email/id, not time
-
--- ❌ POOR: Frequently Updated Settings/Configuration
-CREATE TABLE user_settings (
-    user_id BIGINT PRIMARY KEY,
-    theme VARCHAR(20),       -- Changes: light -> dark -> auto
-    language VARCHAR(10),    -- Changes: en -> es -> fr
-    notifications JSONB,     -- Frequent preference updates
-    updated_at TIMESTAMPTZ
-);
--- ❌ NO: Settings data frequently updated, accessed by user_id not time
-
--- ❌ POOR: Index patterns suggesting non-time-series access
-CREATE INDEX idx_users_email ON users (email);
-CREATE INDEX idx_users_name ON users (name);
-CREATE INDEX idx_users_status ON users (status);
--- ❌ No time-based indexes - suggests lookup by attributes, not time ranges
-```
-
-#### Index Analysis Guidelines:
-
-When examining CREATE INDEX statements in migrations or schema files:
-
-- ✅ **Good hypertable indicators:**
-  - Multiple indexes containing timestamp columns
-  - Composite indexes with (entity_id, timestamp) patterns
-  - Time-only indexes (e.g., `CREATE INDEX ... ON table (created_at DESC)`)
-  - Range-based indexes (e.g., covering recent time periods)
-
-- ❌ **Poor hypertable indicators:**
-  - Most indexes are on non-time columns (email, name, status)
-  - Unique indexes on non-time fields
-  - Foreign key indexes pointing to reference tables
-  - Complex multi-column indexes without time dimensions
-
-#### SPECIAL CASE: ID-Based Tables with Time-Series Characteristics
-
-Some tables with sequential ID primary keys can still be good hypertable candidates if they exhibit insert-heavy patterns with time-correlated access:
-
-```sql
--- ✅ POTENTIAL CANDIDATE: Sequential ID tables
 CREATE TABLE orders (
-    id BIGSERIAL PRIMARY KEY,              -- Sequential ID
-    user_id BIGINT NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending',
-    total_amount DECIMAL(10,2),
-    created_at TIMESTAMPTZ DEFAULT NOW(),  -- Time column for partitioning
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    id BIGSERIAL PRIMARY KEY,           -- Can partition by ID
+    user_id BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW() -- For chunk skipping/sparse indexes
 );
-
-CREATE INDEX idx_orders_created_at ON orders (created_at);     -- Time-based queries
-CREATE INDEX idx_orders_user_recent ON orders (user_id, created_at DESC); -- Recent orders per user
 ```
 
-**ID-Based Table Candidacy Criteria:**
-- ✅ **Insert-mostly pattern**: Orders rarely updated after initial creation
-- ✅ **Lookups mostly by ID**: `SELECT * FROM orders WHERE id = ?` dominates
-- ✅ **Recency bias**: Recent orders accessed more than old ones
-- ✅ **Time-based reporting**: Monthly/daily order summaries common
-- ✅ **Sequential ID growth**: IDs correlate with time (newer records = higher IDs)
+Note: For ID-based tables where there is also a time column (created_at, ordered_at, etc.), 
+you can partition by ID and use  chunk skipping and sparse indexes on the time column. 
+See the `migrate_to_hypertables` guide for details.
 
-**Code patterns that suggest ID-based tables are good candidates:**
+## Step 2: Candidacy Scoring (8+ points = good candidate)
 
-```python
-# GOOD: Insert-heavy, query by ID, recency bias
-def create_order(user_id, items):
-    order_id = db.execute("""
-        INSERT INTO orders (user_id, total_amount, created_at)
-        VALUES (%s, %s, NOW()) RETURNING id
-    """, [user_id, calculate_total(items)])
-    # ✅ Mostly INSERTs
+### Time-Series Characteristics (5+ points needed)
+- Has timestamp/timestamptz column: **3 points**
+- Data inserted chronologically: **2 points**
+- Queries filter by time: **2 points**
+- Time aggregations common: **2 points**
 
-def get_order(order_id):
-    return db.query("SELECT * FROM orders WHERE id = %s", [order_id])
-    # ✅ Lookup by ID (can use both ID and time partitions)
+### Scale & Performance (3+ points recommended)
+- Large table (1M+ rows or 100MB+): **2 points**
+- High insert volume: **1 point**
+- Infrequent updates to historical: **1 point**
+- Range queries common: **1 point**
+- Aggregation queries: **2 points**
 
-def get_recent_orders(user_id, days=30):
-    return db.query("""
-        SELECT * FROM orders 
-        WHERE user_id = %s AND created_at >= NOW() - INTERVAL '%s days'
-        ORDER BY created_at DESC
-    """, [user_id, days])
-    # ✅ Recency bias - query recent data more often
+### Data Patterns (bonus)
+- Contains entity ID for segmentation (device_id, user_id, product_id, symbol, etc.): **1 point**
+- Numeric measurements: **1 point**
+- Log/event structure: **1 point**
 
-def daily_order_stats(start_date, end_date):
-    return db.query("""
-        SELECT DATE_TRUNC('day', created_at) as day, 
-               COUNT(*), SUM(total_amount)
-        FROM orders 
-        WHERE created_at BETWEEN %s AND %s
-        GROUP BY 1
-    """, [start_date, end_date])
-    # ✅ Time-based aggregations
-```
+## Common Patterns
 
-**Note**: For ID-based tables where ID correlates with time, you can partition by ID and use chunk skipping on the time column. See the migration guide for implementation details.
+### ✅ GOOD Candidates
 
-## Step 2: Hypertable Candidacy Assessment
-
-### GOOD Candidates for Hypertable Conversion
-
-Tables scoring 8+ points from this criteria:
-
-**Time-Series Characteristics (Required - 5+ points needed)**
-- ✅ **Has timestamp/timestamptz column** (3 points)
-- ✅ **Data inserted chronologically** (2 points) 
-- ✅ **Queries frequently filter by time** (2 points)
-- ✅ **Time-based aggregations common** (2 points)
-
-**Scale & Performance Benefits (3+ points recommended)**
-- ✅ **Large table (1M+ rows or 100MB+)** (2 points)
-- ✅ **High insert volume** (1 point)
-- ✅ **Infrequent updates to historical data** (1 point)
-- ✅ **Range queries common** (1 point)
-- ✅ **Aggregation queries over time windows** (2 points)
-
-**Data Patterns (Bonus points)**
-- ✅ **Contains device/sensor/user ID for segmentation** (1 point)
-- ✅ **Numeric measurements/values** (1 point)
-- ✅ **Log/event data structure** (1 point)
-
-**PATTERN 1: Event/Log Tables**
-Examples: user_events, application_logs, audit_logs
-
+**✅ Event/Log Tables** (user_events, audit_logs)
 ```sql
 CREATE TABLE user_events (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    event_type VARCHAR(50),
+    user_id BIGINT,
+    event_type TEXT,
     event_time TIMESTAMPTZ DEFAULT NOW(),
-    session_id UUID,
     metadata JSONB
 );
+-- Partition by id, segment by user_id, enable chunk skipping and minmax sparse_index on event_time
 ```
-✅ **HYPERTABLE CANDIDATE**: id partition (correlated with event_time), user_id segment
-**Setup**: `SELECT create_hypertable('user_events', 'id'); SELECT enable_chunk_skipping('user_events', 'event_time');`
 
-**PATTERN 2: Sensor/IoT Data**
-Examples: sensor_readings, device_telemetry, measurements
-
+**✅ Sensor/IoT Data** (sensor_readings, telemetry)
 ```sql
 CREATE TABLE sensor_readings (
-    device_id VARCHAR(50) NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL,        -- ✅ PARTITION CANDIDATE  
+    device_id TEXT,
+    timestamp TIMESTAMPTZ,
     temperature DOUBLE PRECISION,
-    humidity DOUBLE PRECISION,
-    location POINT
+    humidity DOUBLE PRECISION
 );
+-- Partition by timestamp, segment by device_id, minmax sparse indexes on temperature and humidity
 ```
-✅ **HYPERTABLE CANDIDATE**: timestamp partition, device_id segment
 
-**PATTERN 3: Financial/Trading Data**
-Examples: stock_prices, transactions, market_data
-
+**✅ Financial/Trading** (stock_prices, transactions)
 ```sql
 CREATE TABLE stock_prices (
-    symbol VARCHAR(10) NOT NULL,
-    price_time TIMESTAMPTZ NOT NULL,       -- ✅ PARTITION CANDIDATE
-    open_price DECIMAL(10,2),
-    close_price DECIMAL(10,2),
+    symbol VARCHAR(10),
+    price_time TIMESTAMPTZ,
+    open_price DECIMAL,
+    close_price DECIMAL,
     volume BIGINT
 );
+-- Partition by price_time, segment by symbol, minmax sparse indexes on open_price and close_price and volume
 ```
-✅ **HYPERTABLE CANDIDATE**: price_time partition, symbol segment
 
-**PATTERN 4: Performance Metrics**
-Examples: system_metrics, application_metrics, monitoring_data
-
+**✅ System Metrics** (monitoring_data)
 ```sql
 CREATE TABLE system_metrics (
-    hostname VARCHAR(100),
-    metric_time TIMESTAMPTZ NOT NULL,      -- ✅ PARTITION CANDIDATE
+    hostname TEXT,
+    metric_time TIMESTAMPTZ,
     cpu_usage DOUBLE PRECISION,
-    memory_usage BIGINT,
-    disk_io BIGINT
+    memory_usage BIGINT
 );
+-- Partition by metric_time, segment by hostname, minmax sparse indexes on cpu_usage and memory_usage
 ```
-✅ **HYPERTABLE CANDIDATE**: metric_time partition, hostname segment
 
-### POOR Candidates for Hypertable Conversion
+### ❌ POOR Candidates
 
-Tables to AVOID Converting:
-
-**❌ Poor Candidates (0-3 points)**
-- Reference/lookup tables (countries, categories, settings)
-- User profiles/account data (mostly static)
-- Small tables (<100k rows, <10MB)
-- Frequently updated historical records
-- Tables without time-based access patterns
-- Configuration/metadata tables
-
-**ANTI-PATTERN 1: Reference Tables**
-
+**❌ Reference Tables** (countries, categories)
 ```sql
 CREATE TABLE countries (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100),
     code CHAR(2)
 );
+-- Static data, no time component
 ```
-❌ **NO**: Static reference data, no time component
 
-**ANTI-PATTERN 2: User Profiles**
-
+**❌ User Profiles** (users, accounts)
 ```sql
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     email VARCHAR(255),
-    created_at TIMESTAMPTZ,  -- Has timestamp but...
-    updated_at TIMESTAMPTZ   -- Frequently updated, not time-series access
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ
 );
+-- Accessed by ID, frequently updated, has timestamp but it's not the primary query dimension (the primary query dimension is id or email)
 ```
-❌ **NO**: Profile data accessed by user_id, not time ranges
 
-**ANTI-PATTERN 3: Frequently Updated Settings/Configuration**
-
+**❌ Settings/Config** (user_settings)
 ```sql
 CREATE TABLE user_settings (
     user_id BIGINT PRIMARY KEY,
@@ -490,24 +266,16 @@ CREATE TABLE user_settings (
     notifications JSONB,     -- Frequent preference updates
     updated_at TIMESTAMPTZ
 );
+-- Accessed by user_id, frequently updated, has timestamp but it's not the primary query dimension (the primary query dimension is user_id)
 ```
-❌ **NO**: Settings data frequently updated, accessed by user_id not time
 
-## Key Information to Highlight in Analysis
+## Analysis Output Requirements
 
-For each candidate table, ensure your analysis covers:
+For each candidate table provide:
+- **Score:** Based on criteria (8+ = strong candidate)
+- **Pattern:** Insert vs update ratio
+- **Access:** Time-based vs entity lookups
+- **Size:** Current size and growth rate
+- **Queries:** Time-range, aggregations, point lookups
 
-**Essential Scoring Information:**
-- Candidacy score based on the criteria above (8+ points indicates strong candidate)
-- Insert vs update patterns (append-only is ideal)
-- Data access patterns (time-based queries vs entity lookups)
-- Table size and growth rate
-- Query types (time-range filters, aggregations, point lookups)
-
-**Hypertable Suitability Assessment:**
-- Time-series characteristics (timestamp columns, chronological data)
-- Scale benefits (large tables with high insert volume)
-- Query optimization potential (time-based filtering, aggregations)
-- Data pattern alignment (sensor data, logs, events, sequential records)
-
-Focus on tables with insert-heavy patterns (time-series, event logs, transaction records, sequential data), large data volumes, and time-based or sequential query access. Tables scoring 8+ points are strong candidates for hypertable conversion.
+Focus on insert-heavy patterns with time-based or sequential access. Tables scoring 8+ points are strong candidates for conversion.

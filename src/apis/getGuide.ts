@@ -1,5 +1,5 @@
+import { ApiFactory } from '@tigerdata/mcp-boilerplate';
 import { z } from 'zod';
-import { ApiFactory } from '../shared/boilerplate/src/types.js';
 import { ServerContext } from '../types.js';
 import { prompts } from '../prompts/index.js';
 

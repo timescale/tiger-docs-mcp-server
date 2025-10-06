@@ -1,3 +1,0 @@
-[submodule "src/shared/boilerplate"]
-	path = src/shared/boilerplate
-	url = git@github.com:timescale/mcp-boilerplate-node

@@ -1,7 +1,7 @@
-import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
+import { ApiFactory } from '@tigerdata/mcp-boilerplate';
 import { embed } from 'ai';
-import { ApiFactory } from '../shared/boilerplate/src/types.js';
+import { z } from 'zod';
 import { ServerContext } from '../types.js';
 
 const inputSchema = {

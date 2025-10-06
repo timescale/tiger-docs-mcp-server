@@ -1,7 +1,5 @@
+import { ApiFactory } from '@tigerdata/mcp-boilerplate';
 import { z } from 'zod';
-import { openai } from '@ai-sdk/openai';
-import { embed } from 'ai';
-import { ApiFactory } from '../shared/boilerplate/src/types.js';
 import { ServerContext } from '../types.js';
 
 const inputSchema = {

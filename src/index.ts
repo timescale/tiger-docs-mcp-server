@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import { cliEntrypoint } from './shared/boilerplate/src/cliEntrypoint.js';
+import { cliEntrypoint } from '@tigerdata/mcp-boilerplate';
 
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';

@@ -105,8 +105,10 @@ WHERE conrelid = 'your_table_name'::regclass AND contype = 'p' OR contype = 'u';
 
 If the user accepts, modify the constraint:
 ```sql
+BEGIN;
 ALTER TABLE your_table_name DROP CONSTRAINT existing_pk_name;
 ALTER TABLE your_table_name ADD PRIMARY KEY (existing_columns, partition_column);
+COMMIT;
 ```
 If the user does not accept, you should NOT migrate the table.
 

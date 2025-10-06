@@ -8,12 +8,12 @@ const inputSchema = {
   version: z.coerce
     .number()
     .int()
-    .optional()
+    .nullable()
     .describe('The PostgreSQL major version (e.g., 17, not 17.2) to use for the query. Defaults to 17.'),
   limit: z.coerce
     .number()
     .min(1)
-    .optional()
+    .nullable()
     .describe('The maximum number of matches to return. Defaults to 10.'),
   prompt: z
     .string()

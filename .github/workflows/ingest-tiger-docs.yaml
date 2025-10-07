@@ -37,17 +37,17 @@ jobs:
       - name: Ingest Tiger docs
         run: uv run python tiger_docs.py
 
-  # ingest-prod:
-  #   name: Ingest Tiger Docs
-  #   runs-on: ubuntu-latest
-  #   defaults:
-  #     run:
-  #       working-directory: ingest
-  #   env:
-  #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-  #     PGHOST: ${{ secrets.PROD_PGHOST }}
-  #     PGPORT: ${{ secrets.PROD_PGPORT }}
-  #     PGDATABASE: ${{ secrets.PROD_PGDATABASE }}
-  #     PGUSER: ${{ secrets.PROD_PGUSER }}
-  #     PGPASSWORD: ${{ secrets.PROD_PGPASSWORD }}
-  #   steps: *ingest-steps
+  ingest-prod:
+    name: Ingest Tiger Docs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ingest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PGHOST: ${{ secrets.PROD_PGHOST }}
+      PGPORT: ${{ secrets.PROD_PGPORT }}
+      PGDATABASE: ${{ secrets.PROD_PGDATABASE }}
+      PGUSER: ${{ secrets.PROD_PGUSER }}
+      PGPASSWORD: ${{ secrets.PROD_PGPASSWORD }}
+    steps: *ingest-steps

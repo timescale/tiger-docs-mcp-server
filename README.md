@@ -1,6 +1,6 @@
 # Tiger Docs MCP Server
 
-An [MCP server](https://modelcontextprotocol.io/docs/learn/server-concepts) that supercharges AI assistants with deep PostgreSQL, TimescaleDB, and Tiger Cloud knowledge through semantic documentation search and curated prompts.
+An [MCP server](https://modelcontextprotocol.io/docs/learn/server-concepts) that supercharges AI assistants with deep PostgreSQL, TimescaleDB, and Tiger Cloud knowledge through semantic documentation search and curated prompt templates. 
 
 ## Quick Start
 
@@ -69,9 +69,9 @@ Searches the TigerData and TimescaleDB documentation using semantic similarity.
 
 Same format as PostgreSQL semantic search above.
 
-### Get Guide
+### Prompt Templates
 
-Retrieves curated development guides for common PostgreSQL and TimescaleDB tasks.
+Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 
 **MCP Tool**: `get_guide`
 
@@ -94,7 +94,7 @@ Retrieves curated development guides for common PostgreSQL and TimescaleDB tasks
 }
 ```
 
-**Available Guides**: Check the MCP tool description for the current list of available guide names.
+**Available Guides**: Check the MCP tool description for the current list of available prompt templates.
 
 ## Development
 

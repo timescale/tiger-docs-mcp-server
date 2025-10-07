@@ -512,10 +512,10 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
         cur.execute("""
             select conname
             from pg_constraint
-            where conrelid = 'docs.postgres_chunks'::regclass
+            where conrelid = to_regclass(%s)
             and contype = 'f'
             and conname like %s
-        """, ['%_tmp_%'])
+        """, ['docs.postgres_chunks', '%_tmp_%'])
         for row in cur.fetchall():
             old_fk_name = row[0]
             new_fk_name = old_fk_name.replace("_tmp_", "_")

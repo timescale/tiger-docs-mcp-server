@@ -94,7 +94,7 @@ Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 }
 ```
 
-**Available Guides**: Check the MCP tool description for the current list of available prompt templates.
+**Available Prompt Templates**: Check the MCP tool description for the current list of available prompt templates.
 
 ## Development
 

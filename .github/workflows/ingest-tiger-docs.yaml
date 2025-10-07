@@ -7,7 +7,7 @@ on:
 
 jobs:
   ingest-dev:
-    name: Ingest Tiger Docs
+    name: Ingest Tiger docs for Dev
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,7 +38,7 @@ jobs:
         run: uv run python tiger_docs.py
 
   ingest-prod:
-    name: Ingest Tiger Docs
+    name: Ingest Tiger docs for Prod
     runs-on: ubuntu-latest
     defaults:
       run:

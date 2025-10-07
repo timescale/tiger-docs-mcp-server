@@ -11,7 +11,7 @@ on:
 
 jobs:
   ingest-dev:
-    name: Ingest PostgreSQL Docs For Dev
+    name: Ingest PostgreSQL docs for Dev
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -47,7 +47,7 @@ jobs:
         run: uv run python postgres_docs.py ${{ github.event.inputs.version }}
 
   ingest-prod:
-    name: Ingest PostgreSQL Docs For Dev
+    name: Ingest PostgreSQL docs for Prod
     runs-on: ubuntu-latest
     defaults:
       run:

@@ -63,21 +63,38 @@ class DatabaseManager:
     def __init__(self, database_uri, embedding_model=None):
         self.database_uri = database_uri
         self.embedding_model = embedding_model
+        self.finalize_queries: list[SQL] = []
+
         try:
             self.connection = psycopg.connect(self.database_uri)
         except Exception as e:
             raise RuntimeError(f"Database connection failed: {e}")
 
-    def create_tmp_tables(self):
+    def initialize(self):
         with self.connection.cursor() as cursor:
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_chunks_tmp").format(schema=Identifier(schema)))
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_pages_tmp").format(schema=Identifier(schema)))
             cursor.execute(SQL("CREATE TABLE {schema}.timescale_pages_tmp (LIKE {schema}.timescale_pages INCLUDING ALL EXCLUDING CONSTRAINTS)").format(schema=Identifier(schema)))
             cursor.execute(SQL("CREATE TABLE {schema}.timescale_chunks_tmp (LIKE {schema}.timescale_chunks INCLUDING ALL EXCLUDING CONSTRAINTS)").format(schema=Identifier(schema)))
             cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp ADD FOREIGN KEY (page_id) REFERENCES {schema}.timescale_pages_tmp(id) ON DELETE CASCADE").format(schema=Identifier(schema)))
+
+            # The bm25 indexes have a bug that prevent inserting data into a table
+            # underneath non-public schemas that has them, so we need to make remove
+            # them from the tmp tables and recreate them after renaming.
+            cursor.execute("""
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = %s
+                    AND tablename LIKE %s
+                    AND indexdef LIKE %s
+            """, ['docs', 'timescale%_tmp_%', '%bm25%'])
+            for row in cursor.fetchall():
+                index_def = row[0]
+                tmp_index_def = index_def.replace('_tmp', '')
+                self.finalize_queries.append(SQL(tmp_index_def))
         self.connection.commit()
 
-    def rename_objects(self):
+    def finalize(self):
         """Rename the temporary tables and their indexes to the final names, dropping the old tables if they exist"""
         with self.connection.cursor() as cursor:
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_chunks").format(schema=Identifier(schema)))
@@ -134,6 +151,9 @@ class DatabaseManager:
                         new_fk_name=Identifier(new_fk_name),
                     )
                 )
+
+            for query in self.finalize_queries:
+                cursor.execute(query)
 
         self.connection.commit()
 
@@ -1035,7 +1055,7 @@ if __name__ == "__main__":
 
         embedding_model = OpenAIEmbeddingWrapper(client)
         db_manager = DatabaseManager(database_uri=args.database_uri, embedding_model=embedding_model)
-        db_manager.create_tmp_tables()
+        db_manager.initialize()
     else:
         file_manager = FileManager(args.output_dir)
 
@@ -1056,9 +1076,9 @@ if __name__ == "__main__":
     # Create database indexes after scraping completes
     if args.storage_type == 'database' and not args.skip_indexes and db_manager:
         try:
-            print("Renaming temporary tables to final names...")
-            db_manager.rename_objects()
-            print("Database indexes created successfully!")
+            print("Finalizing database...")
+            db_manager.finalize()
+            print("Database finalized successfully.")
         except Exception as e:
             print(f"Failed to finish database: {e}")
             raise SystemExit(1)

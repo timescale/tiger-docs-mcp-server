@@ -118,9 +118,9 @@ class DatabaseManager:
                     from pg_constraint
                     where conrelid = to_regclass(%s)
                     and contype = 'f'
-                    and conname like '%_tmp_%'
+                    and conname like %s
                 """).format(schema=Identifier(schema)),
-                [f"{schema}.timescale_chunks"],
+                [f"{schema}.timescale_chunks", '%_tmp_%'],
             )
             for row in cursor.fetchall():
                 old_fk_name = row[0]

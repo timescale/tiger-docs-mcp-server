@@ -9,7 +9,7 @@ const inputSchema = {
     .number()
     .int()
     .nullable()
-    .describe('The PostgreSQL version to use for the query. Defaults to 17.'),
+    .describe('The PostgreSQL major version (e.g., 17, not 17.2) to use for the query. Defaults to 17.'),
   limit: z.coerce
     .number()
     .min(1)

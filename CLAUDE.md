@@ -12,6 +12,7 @@
 - Use ES modules with `.js` extension in import paths
 - Strictly type all functions and variables with TypeScript
 - Follow zod schema patterns for tool input validation
+- Use `.nullable()` instead of `.optional()` for optional MCP tool parameters (required for gpt-5 compatibility)
 - Prefer async/await over callbacks and Promise chains
 - Place all imports at top of file, grouped by external then internal
 - Use descriptive variable names that clearly indicate purpose

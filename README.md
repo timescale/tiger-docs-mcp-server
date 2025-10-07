@@ -12,6 +12,18 @@ Add the MCP server to Claude Code with this command:
 claude mcp add --transport http tiger-docs https://mcp.tigerdata.com/docs
 ```
 
+Add the MCP server to Cursor with this inside `.cursor/mcp.json`:
+
+```
+{
+  "mcpServers": {
+    "tiger-docs": {
+      "url": "https://mcp.tigerdata.com/docs"
+    }
+  }
+}
+```
+
 ## API
 
 All methods are exposed as MCP tools and REST API endpoints.

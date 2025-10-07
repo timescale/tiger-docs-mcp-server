@@ -79,7 +79,7 @@ Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 
 ```jsonc
 {
-  "prompt_name": "setup_hypertable"  // see available guides in tool description
+  "prompt_name": "setup_hypertable"  // see available prompt templates in tool description
 }
 ```
 
@@ -90,7 +90,7 @@ Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
   "prompt_name": "setup_hypertable",
   "title": "Setup Hypertable",
   "description": "Step-by-step instructions for...",
-  "content": "..."  // full guide content
+  "content": "..."  // full prompt template instructions
 }
 ```
 

@@ -6,15 +6,16 @@ An [MCP server](https://modelcontextprotocol.io/docs/learn/server-concepts) that
 
 Want to use this MCP Server without running it yourself? Use the publicly available endpoint hosted by TigerData! [https://mcp.tigerdata.com/docs](https://mcp.tigerdata.com/docs)
 
-Add the MCP server to Claude Code with this command:
+**Claude Code** installation: 
 
 ```bash
 claude mcp add --transport http tiger-docs https://mcp.tigerdata.com/docs
 ```
 
-Add the MCP server to Cursor with this inside `.cursor/mcp.json`:
+**Cursor*** installation:
 
-```
+```bash
+// .cursor/mcp.json
 {
   "mcpServers": {
     "tiger-docs": {

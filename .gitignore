@@ -5,3 +5,6 @@ ingest/build
 ingest/postgres
 .idea
 .migrate
+
+# Temporary files directory
+tmp/

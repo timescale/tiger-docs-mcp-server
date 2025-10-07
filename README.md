@@ -12,7 +12,7 @@ Want to use this MCP Server without running it yourself? Use the publicly availa
 claude mcp add --transport http tiger-docs https://mcp.tigerdata.com/docs
 ```
 
-**Cursor*** installation:
+**Cursor** installation:
 
 ```bash
 // .cursor/mcp.json

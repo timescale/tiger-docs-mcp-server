@@ -1,15 +1,28 @@
 # Tiger Docs MCP Server
 
-An [MCP server](https://modelcontextprotocol.io/docs/learn/server-concepts) that supercharges AI assistants with deep PostgreSQL, TimescaleDB, and Tiger Cloud knowledge through semantic documentation search and curated prompts.
+An [MCP server](https://modelcontextprotocol.io/docs/learn/server-concepts) that supercharges AI assistants with deep PostgreSQL, TimescaleDB, and Tiger Cloud knowledge through semantic documentation search and curated prompt templates. 
 
 ## Quick Start
 
 Want to use this MCP Server without running it yourself? Use the publicly available endpoint hosted by TigerData! [https://mcp.tigerdata.com/docs](https://mcp.tigerdata.com/docs)
 
-Add the MCP server to Claude Code with this command:
+**Claude Code** installation: 
 
 ```bash
 claude mcp add --transport http tiger-docs https://mcp.tigerdata.com/docs
+```
+
+**Cursor** installation:
+
+```bash
+// .cursor/mcp.json
+{
+  "mcpServers": {
+    "tiger-docs": {
+      "url": "https://mcp.tigerdata.com/docs"
+    }
+  }
+}
 ```
 
 ## API
@@ -69,9 +82,9 @@ Searches the TigerData and TimescaleDB documentation using semantic similarity.
 
 Same format as PostgreSQL semantic search above.
 
-### Get Guide
+### Prompt Templates
 
-Retrieves curated development guides for common PostgreSQL and TimescaleDB tasks.
+Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 
 **MCP Tool**: `get_guide`
 
@@ -79,7 +92,7 @@ Retrieves curated development guides for common PostgreSQL and TimescaleDB tasks
 
 ```jsonc
 {
-  "prompt_name": "setup_hypertable"  // see available guides in tool description
+  "prompt_name": "setup_hypertable"  // see available prompt templates in tool description
 }
 ```
 
@@ -90,11 +103,11 @@ Retrieves curated development guides for common PostgreSQL and TimescaleDB tasks
   "prompt_name": "setup_hypertable",
   "title": "Setup Hypertable",
   "description": "Step-by-step instructions for...",
-  "content": "..."  // full guide content
+  "content": "..."  // full prompt template instructions
 }
 ```
 
-**Available Guides**: Check the MCP tool description for the current list of available guide names.
+**Available Prompt Templates**: Check the MCP tool description for the current list of available prompt templates.
 
 ## Development
 

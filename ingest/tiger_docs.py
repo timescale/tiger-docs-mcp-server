@@ -1069,5 +1069,6 @@ if __name__ == "__main__":
             print("Database indexes created successfully!")
         except Exception as e:
             print(f"Failed to finish database: {e}")
+            raise SystemExit(1)
         finally:
             db_manager.close()

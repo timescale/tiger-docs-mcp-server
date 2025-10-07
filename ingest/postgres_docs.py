@@ -493,9 +493,9 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
                 from pg_indexes
                 where schemaname = 'docs'
                 and tablename = %s
-                and indexname like '%_tmp_%'
+                and indexname like %s
             """,
-                [table],
+                [table, '%_tmp_%'],
             )
             for row in cur.fetchall():
                 old_index_name = row[0]
@@ -514,8 +514,8 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
             from pg_constraint
             where conrelid = 'docs.postgres_chunks'::regclass
             and contype = 'f'
-            and conname like '%_tmp_%'
-        """)
+            and conname like %s
+        """, ['%_tmp_%'])
         for row in cur.fetchall():
             old_fk_name = row[0]
             new_fk_name = old_fk_name.replace("_tmp_", "_")

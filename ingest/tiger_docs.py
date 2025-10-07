@@ -95,9 +95,9 @@ class DatabaseManager:
                     from pg_indexes
                     where schemaname = %s
                     and tablename = %s
-                    and indexname like '%_tmp_%'
+                    and indexname like %s
                 """,
-                    [schema, table],
+                    [schema, table, '%_tmp_%'],
                 )
                 for row in cursor.fetchall():
                     old_index_name = row[0]

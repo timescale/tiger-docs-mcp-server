@@ -72,8 +72,8 @@ class DatabaseManager:
         with self.connection.cursor() as cursor:
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_chunks_tmp").format(schema=Identifier(schema)))
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_pages_tmp").format(schema=Identifier(schema)))
-            cursor.execute(SQL("CREATE TABLE {schema}.timescale_pages_tmp (LIKE {schema}.timescale_pages INCLUDING ALL)").format(schema=Identifier(schema)))
-            cursor.execute(SQL("CREATE TABLE {schema}.timescale_chunks_tmp (LIKE {schema}.timescale_chunks INCLUDING ALL)").format(schema=Identifier(schema)))
+            cursor.execute(SQL("CREATE TABLE {schema}.timescale_pages_tmp (LIKE {schema}.timescale_pages INCLUDING ALL EXCLUDING CONSTRAINTS)").format(schema=Identifier(schema)))
+            cursor.execute(SQL("CREATE TABLE {schema}.timescale_chunks_tmp (LIKE {schema}.timescale_chunks INCLUDING ALL EXCLUDING CONSTRAINTS)").format(schema=Identifier(schema)))
             cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp ADD FOREIGN KEY (page_id) REFERENCES {schema}.timescale_pages_tmp(id) ON DELETE CASCADE").format(schema=Identifier(schema)))
         self.connection.commit()
 
@@ -84,11 +84,56 @@ class DatabaseManager:
             cursor.execute(SQL("DROP TABLE IF EXISTS {schema}.timescale_pages").format(schema=Identifier(schema)))
             cursor.execute(SQL("ALTER TABLE {schema}.timescale_chunks_tmp RENAME TO timescale_chunks").format(schema=Identifier(schema)))
             cursor.execute(SQL("ALTER TABLE {schema}.timescale_pages_tmp RENAME TO timescale_pages").format(schema=Identifier(schema)))
-            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_pages_tmp_domain RENAME TO idx_timescale_pages_domain").format(schema=Identifier(schema)))
-            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_pages_tmp_url RENAME TO idx_timescale_pages_url").format(schema=Identifier(schema)))
-            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_chunks_tmp_page_id RENAME TO idx_timescale_chunks_page_id").format(schema=Identifier(schema)))
-            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_chunks_tmp_metadata RENAME TO idx_timescale_chunks_metadata").format(schema=Identifier(schema)))
-            cursor.execute(SQL("ALTER INDEX {schema}.idx_timescale_chunks_tmp_embedding RENAME TO idx_timescale_chunks_embedding").format(schema=Identifier(schema)))
+
+            # the auto create foreign key and index names include the _tmp_ bit in their
+            # names, so we remove them so that they match the generated names for the
+            # renamed tables.
+            for table in ["timescale_pages", "timescale_chunks"]:
+                cursor.execute(
+                    """
+                    select indexname
+                    from pg_indexes
+                    where schemaname = %s
+                    and tablename = %s
+                    and indexname like '%_tmp_%'
+                """,
+                    [schema, table],
+                )
+                for row in cursor.fetchall():
+                    old_index_name = row[0]
+                    new_index_name = old_index_name.replace("_tmp_", "_")
+                    cursor.execute(
+                        SQL(
+                            "alter index {schema}.{old_index_name} rename to {new_index_name}"
+                        ).format(
+                            schema=Identifier(schema),
+                            old_index_name=Identifier(old_index_name),
+                            new_index_name=Identifier(new_index_name),
+                        )
+                    )
+
+            cursor.execute(
+                SQL("""
+                    select conname
+                    from pg_constraint
+                    where conrelid = {schema}.timescale_chunks::regclass
+                    and contype = 'f'
+                    and conname like '%_tmp_%'
+                """).format(schema=Identifier(schema))
+            )
+            for row in cursor.fetchall():
+                old_fk_name = row[0]
+                new_fk_name = old_fk_name.replace("_tmp_", "_")
+                cursor.execute(
+                    SQL(
+                        "alter table {schema}.timescale_chunks rename constraint {old_fk_name} to {new_fk_name}"
+                    ).format(
+                        schema=Identifier(schema),
+                        old_fk_name=Identifier(old_fk_name),
+                        new_fk_name=Identifier(new_fk_name),
+                    )
+                )
+
         self.connection.commit()
 
     def save_page(self, url, domain, filename, content_length, chunking_method='header'):
@@ -185,58 +230,6 @@ class DatabaseManager:
 
         except Exception as e:
             raise RuntimeError(f"Failed to save chunks for page {page_id}: {e}")
-
-    def create_indexes(self):
-        """Create database indexes with max 3 parallel workers"""
-        try:
-            asyncio.run(self._create_indexes_async())
-        except Exception as e:
-            raise RuntimeError(f"Failed to create indexes: {e}")
-
-    async def _create_indexes_async(self):
-        """Async implementation with max 3 concurrent workers using psycopg"""
-
-        print("Creating database indexes with max 3 parallel workers...")
-
-        # Limit to max 3 concurrent connections
-        semaphore = asyncio.Semaphore(3)
-
-        async def create_index(name, sql_command):
-            """Create a single index with connection limiting"""
-            async with semaphore:  # Limit concurrent connections
-                try:
-                    start_time = time.time()
-                    print(f"Starting creation of {name}...")
-
-                    # Use psycopg async connection
-                    async with await psycopg.AsyncConnection.connect(self.database_uri) as conn:
-                        async with conn.cursor() as cursor:
-                            await cursor.execute(sql_command)
-                        await conn.commit()
-
-                    duration = time.time() - start_time
-                    print(f"✓ {name} created in {duration:.1f}s")
-                    return name, duration
-
-                except Exception as e:
-                    print(f"✗ Failed to create {name}: {e}")
-                    raise RuntimeError(f"Failed to create {name}: {e}")
-
-        # Define index creation tasks
-        index_tasks = [
-            create_index("Pages domain index", f"CREATE INDEX IF NOT EXISTS idx_timescale_pages_tmp_domain ON {schema}.timescale_pages_tmp(domain)"),
-            create_index("Pages URL index", f"CREATE INDEX IF NOT EXISTS idx_timescale_pages_tmp_url ON {schema}.timescale_pages_tmp(url)"),
-            create_index("Chunks page_id index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_tmp_page_id ON {schema}.timescale_chunks_tmp(page_id)"),
-            create_index("Chunks metadata index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_tmp_metadata ON {schema}.timescale_chunks_tmp USING gin(metadata)"),
-            create_index("Vector HNSW index", f"CREATE INDEX IF NOT EXISTS idx_timescale_chunks_tmp_embedding ON {schema}.timescale_chunks_tmp USING hnsw (embedding vector_cosine_ops)")
-        ]
-
-        # Run with max 3 concurrent workers
-        results = await asyncio.gather(*index_tasks)
-
-        print(f"All {len(results)} indexes created successfully with max 3 parallel workers!")
-        total_time = sum(result[1] for result in results)
-        print(f"Estimated sequential time saved: ~{total_time:.1f}s")
 
     def close(self):
         """Close database connection"""
@@ -1062,8 +1055,6 @@ if __name__ == "__main__":
     # Create database indexes after scraping completes
     if args.storage_type == 'database' and not args.skip_indexes and db_manager:
         try:
-            print("Creating database indexes...")
-            db_manager.create_indexes()
             print("Renaming temporary tables to final names...")
             db_manager.rename_objects()
             print("Database indexes created successfully!")

@@ -8,6 +8,7 @@ import openai
 import os
 from pathlib import Path
 import psycopg
+from psycopg.sql import SQL, Identifier
 import re
 import shutil
 import subprocess
@@ -384,14 +385,14 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
     conn.execute("drop table if exists docs.postgres_chunks_tmp")
     conn.execute("drop table if exists docs.postgres_pages_tmp")
     conn.execute(
-        "create table docs.postgres_pages_tmp (like docs.postgres_pages including all)"
+        "create table docs.postgres_pages_tmp (like docs.postgres_pages including all excluding constraints)"
     )
     conn.execute(
         "insert into docs.postgres_pages_tmp select * from docs.postgres_pages where version != %s",
         [version],
     )
     conn.execute(
-        "create table docs.postgres_chunks_tmp (like docs.postgres_chunks including all)"
+        "create table docs.postgres_chunks_tmp (like docs.postgres_chunks including all excluding constraints)"
     )
     conn.execute(
         "insert into docs.postgres_chunks_tmp select c.* from docs.postgres_chunks c inner join docs.postgres_pages p on c.page_id = p.id where p.version != %s",
@@ -481,7 +482,53 @@ def chunk_files(conn: psycopg.Connection, version: int) -> None:
         cur.execute("drop table docs.postgres_pages")
         cur.execute("alter table docs.postgres_chunks_tmp rename to postgres_chunks")
         cur.execute("alter table docs.postgres_pages_tmp rename to postgres_pages")
-        conn.commit()
+
+        # the auto create foreign key and index names include the _tmp_ bit in their
+        # names, so we remove them so that they match the generated names for the
+        # renamed tables.
+        for table in ["postgres_pages", "postgres_chunks"]:
+            cur.execute(
+                """
+                select indexname
+                from pg_indexes
+                where schemaname = 'docs'
+                and tablename = %s
+                and indexname like '%_tmp_%'
+            """,
+                [table],
+            )
+            for row in cur.fetchall():
+                old_index_name = row[0]
+                new_index_name = old_index_name.replace("_tmp_", "_")
+                cur.execute(
+                    SQL(
+                        "alter index docs.{old_index_name} rename to {new_index_name}"
+                    ).format(
+                        old_index_name=Identifier(old_index_name),
+                        new_index_name=Identifier(new_index_name),
+                    )
+                )
+
+        cur.execute("""
+            select conname
+            from pg_constraint
+            where conrelid = 'docs.postgres_chunks'::regclass
+            and contype = 'f'
+            and conname like '%_tmp_%'
+        """)
+        for row in cur.fetchall():
+            old_fk_name = row[0]
+            new_fk_name = old_fk_name.replace("_tmp_", "_")
+            cur.execute(
+                SQL(
+                    "alter table docs.postgres_chunks rename constraint {old_fk_name} to {new_fk_name}"
+                ).format(
+                    old_fk_name=Identifier(old_fk_name),
+                    new_fk_name=Identifier(new_fk_name),
+                )
+            )
+
+    conn.commit()
 
     print(f"Processed {page_count} pages.")
 

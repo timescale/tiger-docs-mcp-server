@@ -64,9 +64,9 @@ SELECT
   id::int,
   content,
   metadata::text,
-  -(content <@> to_tpquery($1, 'docs.timescale_chunks_content_idx')) as score
+  -(content <@> to_bm25query($1, 'docs.timescale_chunks_content_idx')) as score
  FROM ${schema}.timescale_chunks
- ORDER BY content <@> to_tpquery($1, 'docs.timescale_chunks_content_idx')
+ ORDER BY content <@> to_bm25query($1, 'docs.timescale_chunks_content_idx')
  LIMIT $2
 `,
       [keywords, limit || 10],

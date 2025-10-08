@@ -156,12 +156,12 @@ Sequential ID tables can be candidates if:
 CREATE TABLE orders (
     id BIGSERIAL PRIMARY KEY,           -- Can partition by ID
     user_id BIGINT,
-    created_at TIMESTAMPTZ DEFAULT NOW() -- For chunk skipping/sparse indexes
+    created_at TIMESTAMPTZ DEFAULT NOW() -- For sparse indexes
 );
 ```
 
-Note: For ID-based tables where there is also a time column (created_at, ordered_at, etc.), 
-you can partition by ID and use  chunk skipping and sparse indexes on the time column. 
+Note: For ID-based tables where there is also a time column (created_at, ordered_at, etc.),
+you can partition by ID and use sparse indexes on the time column.
 See the `migrate_to_hypertables` guide for details.
 
 ## Step 2: Candidacy Scoring (8+ points = good candidate)
@@ -197,7 +197,7 @@ CREATE TABLE user_events (
     event_time TIMESTAMPTZ DEFAULT NOW(),
     metadata JSONB
 );
--- Partition by id, segment by user_id, enable chunk skipping and minmax sparse_index on event_time
+-- Partition by id, segment by user_id, enable minmax sparse_index on event_time
 ```
 
 **✅ Sensor/IoT Data** (sensor_readings, telemetry)

@@ -116,7 +116,6 @@ If a column has <100 rows per chunk (too low for segment_by), prepend it to orde
 **Use for:**
 - minmax for outlier detection (temperature > 90).
 - minmax for fields that are highly correlated with segmentby and orderby columns (e.g. if orderby includes `created_at`, minmax on `updated_at` is useful).
-- minmax for any field used in chunk skipping.
 - bloom for high-cardinality/highly selective columns (device_id, user_id, category, region).
 
 **Avoid:** rarely filtered columns.
@@ -350,33 +349,6 @@ CREATE INDEX idx_hourly_entity_category_bucket ON your_table_hourly (entity_id, 
 **Important:** Only create indexes you'll actually use - each has maintenance overhead.
 
 ## Step 10: Optional Enhancements
-
-### Chunk Skipping
-
-Creates min/max indexes to skip entire chunks during queries.
-
-**Use when:** Column has a small range of values within a chunk (often means it correlates with partitioning column in some way) (MOST IMPORTANT) AND frequently used in WHERE with range queries.
-
-**Best candidates:**
-- `updated_at` when `created_at` is partition column (often correlate)
-- `created_at` when sequential id is partition column 
-- Sequential IDs/counters
-- Columns with similar values in same time period
-
-Enable for columns with correlation within chunks and frequent WHERE usage:
-
-```sql
--- Example 1: updated_at correlates with created_at partitioning
-SELECT enable_chunk_skipping('your_table_name', 'updated_at');
--- Queries like "WHERE updated_at > '2024-01-01'" skip chunks where max(updated_at) < '2024-01-01'
-```
-
-```sql
--- Example 2: id (serial) is partition column, enable on created_at
-SELECT enable_chunk_skipping('your_table_name', 'created_at');
--- Works because sequential IDs often created around same time
--- "WHERE created_at > '2024-01-01'" skips chunks where max(created_at) < '2024-01-01'
-```
 
 ### Space Partitioning (NOT RECOMMENDED)
 Only for query patterns where you ALWAYS filter by the space-partition column with expert knowledge and extensive benchmarking. STRONGLY prefer time-only partitioning.

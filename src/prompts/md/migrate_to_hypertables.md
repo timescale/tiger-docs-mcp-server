@@ -37,15 +37,14 @@ Should represent when the event actually occurred or sequential ordering.
 When table has sequential ID (PK) AND timestamp that correlate:
 
 ```sql
--- Partition by ID, enable chunk skipping and minmax sparse indexes on timestamp
+-- Partition by ID, enable minmax sparse indexes on timestamp
 SELECT create_hypertable('orders', 'id', chunk_time_interval => 1000000);
-SELECT enable_chunk_skipping('orders', 'created_at');
 ALTER TABLE orders SET (
     timescaledb.sparse_index = 'minmax(created_at),...'
 );
 ```
 
-Chunk skipping and sparse indexes on time column enable skipping chunks/compressed blocks outside queried time ranges.
+Sparse indexes on time column enable skipping compressed blocks outside queried time ranges.
 
 Use when: ID correlates with time (newer records have higher IDs), need ID-based lookups, time queries also common
 

@@ -3,11 +3,11 @@ title: PostgreSQL to TimescaleDB Hypertable Migration
 description: Comprehensive guide for migrating PostgreSQL tables to TimescaleDB hypertables with optimal configuration and performance validation
 ---
 
-# PostgreSQL to TimescaleDB Hypertable Migration Guide
+# PostgreSQL to TimescaleDB Hypertable Migration
 
 Migrate identified PostgreSQL tables to TimescaleDB hypertables with optimal configuration, migration planning and validation.
 
-**Prerequisites**: Tables already identified as hypertable candidates (use companion "find_hypertable_candidates" guide if needed).
+**Prerequisites**: Tables already identified as hypertable candidates (use companion "find_hypertable_candidates" prompt template if needed).
 
 ## Step 1: Optimal Configuration
 
@@ -37,15 +37,14 @@ Should represent when the event actually occurred or sequential ordering.
 When table has sequential ID (PK) AND timestamp that correlate:
 
 ```sql
--- Partition by ID, enable chunk skipping and minmax sparse indexes on timestamp
+-- Partition by ID, enable minmax sparse indexes on timestamp
 SELECT create_hypertable('orders', 'id', chunk_time_interval => 1000000);
-SELECT enable_chunk_skipping('orders', 'created_at');
 ALTER TABLE orders SET (
     timescaledb.sparse_index = 'minmax(created_at),...'
 );
 ```
 
-Chunk skipping and sparse indexes on time column enable skipping chunks/compressed blocks outside queried time ranges.
+Sparse indexes on time column enable skipping compressed blocks outside queried time ranges.
 
 Use when: ID correlates with time (newer records have higher IDs), need ID-based lookups, time queries also common
 
@@ -116,7 +115,7 @@ IMPORTANT: DO NOT modify the primary key/unique constraint without user permissi
 
 ### Compression Configuration
 
-For detailed segment_by and order_by selection, see "setup_hypertable" guide. Quick reference:
+For detailed segment_by and order_by selection, see "setup_hypertable" prompt template. Quick reference:
 
 **segment_by:** Most common WHERE filter with >100 rows per value per chunk
 - IoT: `device_id`

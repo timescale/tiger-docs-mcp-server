@@ -86,13 +86,13 @@ Same format as PostgreSQL semantic search above.
 
 Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 
-**MCP Tool**: `get_guide`
+**MCP Tool**: `get_prompt_template`
 
 #### Input
 
 ```jsonc
 {
-  "prompt_name": "setup_hypertable"  // see available prompt templates in tool description
+  "name": "setup_hypertable"  // see available prompt templates in tool description
 }
 ```
 
@@ -100,10 +100,10 @@ Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 
 ```jsonc
 {
-  "prompt_name": "setup_hypertable",
-  "title": "Setup Hypertable",
-  "description": "Step-by-step instructions for...",
-  "content": "..."  // full prompt template instructions
+  "name": "setup_hypertable",
+  "title": "TimescaleDB Complete Setup",
+  "description": "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates.",
+  "content": "..."  // full prompt template content
 }
 ```
 

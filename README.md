@@ -101,7 +101,7 @@ Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 ```jsonc
 {
   "name": "setup_hypertable",
-  "title": "TimescaleDB Complete Setup Guide",
+  "title": "TimescaleDB Complete Setup",
   "description": "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates.",
   "content": "..."  // full prompt template content
 }

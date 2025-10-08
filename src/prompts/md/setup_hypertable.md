@@ -1,11 +1,11 @@
 ---
-title: TimescaleDB Complete Setup Guide
+title: TimescaleDB Complete Setup
 description: "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates. Instructions for selecting: partition columns, segment_by columns, order_by columns, chunk time interval, real-time aggregation."
 ---
 
-# TimescaleDB Complete Setup Guide
+# TimescaleDB Complete Setup
 
-Setup guide for insert-heavy data patterns where data is inserted but rarely changed:
+Instructions for insert-heavy data patterns where data is inserted but rarely changed:
 - **Time-series data** (sensors, metrics, system monitoring)
 - **Event logs** (user events, audit trails, application logs)
 - **Transaction records** (orders, payments, financial transactions)

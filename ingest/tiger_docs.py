@@ -81,16 +81,27 @@ class DatabaseManager:
             # The bm25 indexes have a bug that prevent inserting data into a table
             # underneath non-public schemas that has them, so we need to make remove
             # them from the tmp tables and recreate them after renaming.
-            cursor.execute("""
-                SELECT indexdef
+            cursor.execute(
+                """
+                SELECT indexname, indexdef
                 FROM pg_indexes
                 WHERE schemaname = %s
                     AND tablename LIKE %s
                     AND indexdef LIKE %s
-            """, ['docs', 'timescale%_tmp_%', '%bm25%'])
-            for row in cursor.fetchall():
-                index_def = row[0]
-                tmp_index_def = index_def.replace('_tmp', '')
+            """,
+                ["docs", "timescale%_tmp_%", "%bm25%"],
+            )
+            rows = cursor.fetchall()
+            for row in rows:
+                index_name = row[0]
+                index_def = row[1]
+                tmp_index_def = index_def.replace("_tmp", "")
+                cursor.execute(
+                    SQL("DROP INDEX IF EXISTS {schema}.{index_name}").format(
+                        schema=Identifier(schema),
+                        index_name=Identifier(index_name),
+                    )
+                )
                 self.finalize_queries.append(SQL(tmp_index_def))
         self.connection.commit()
 

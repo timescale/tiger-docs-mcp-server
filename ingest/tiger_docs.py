@@ -89,7 +89,7 @@ class DatabaseManager:
                     AND tablename LIKE %s
                     AND indexdef LIKE %s
             """,
-                ["docs", "timescale%_tmp_%", "%bm25%"],
+                ["docs", "timescale%_tmp%", "%bm25%"],
             )
             rows = cursor.fetchall()
             for row in rows:

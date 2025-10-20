@@ -29,7 +29,7 @@ CREATE TABLE your_table_name (
     tsdb.enable_columnstore=true,     -- Disable if table has vector columns
     tsdb.segmentby='entity_id',       -- See selection guide below
     tsdb.orderby='timestamp DESC',     -- See selection guide below
-    tsdb.sparse_index='bloom(category),minmax(value_1),minmax(value_2),minmax(value_3)' -- see selection guide below
+    tsdb.sparse_index='minmax(value_1),minmax(value_2),minmax(value_3)' -- see selection guide below
 );
 ```
 
@@ -108,15 +108,12 @@ If a column has <100 rows per chunk (too low for segment_by), prepend it to orde
 
 **Types:**
 - **minmax:** Min/max values per batch - for range queries (>, <, BETWEEN) on numeric/temporal columns
-- **bloom:** Probabilistic filter - for equality queries (=, IN) on high-cardinality categorical columns
 
 **Use minmax for:** price, temperature, measurement, timestamp (range filtering)
-**Use bloom for:** device_id, user_id, category, region (equality filtering)
 
 **Use for:**
 - minmax for outlier detection (temperature > 90).
 - minmax for fields that are highly correlated with segmentby and orderby columns (e.g. if orderby includes `created_at`, minmax on `updated_at` is useful).
-- bloom for high-cardinality/highly selective columns (device_id, user_id, category, region).
 
 **Avoid:** rarely filtered columns.
 
@@ -127,7 +124,7 @@ The format is a comma-separated list of type_of_index(column_name).
 
 ```sql
 ALTER TABLE table_name SET (
-    timescaledb.sparse_index = 'bloom(category),minmax(value_1),minmax(value_2)'
+    timescaledb.sparse_index = 'minmax(value_1),minmax(value_2)'
 );
 ```
 Explicit configuration available since v2.22.0 (was auto-created since v2.16.0).

@@ -132,7 +132,7 @@ FROM your_table_name GROUP BY column_name;
 **order_by:** Usually `timestamp DESC`. The (segment_by, order_by) combination should form a natural time-series progression.
 - If column has <100 rows/chunk (too low for segment_by), prepend to order_by: `order_by='low_density_col, timestamp DESC'`
 
-**sparse indexes:** add minmax and bloom sparse indexes on the columns that are used in the WHERE clauses but are not in the segment_by or order_by. Use minmax for columns used in range queries and bloom for columns used in equality queries.
+**sparse indexes:** add minmax on the columns that are used in the WHERE clauses but are not in the segment_by or order_by. Use minmax for columns used in range queries.
 
 
 ```sql
@@ -140,7 +140,7 @@ ALTER TABLE your_table_name SET (
     timescaledb.enable_columnstore,
     timescaledb.segmentby = 'entity_id',
     timescaledb.orderby = 'timestamp DESC'
-    timescaledb.sparse_index = 'minmax(value_1),bloom(user_id),...'
+    timescaledb.sparse_index = 'minmax(value_1),...'
 );
 
 -- Compress after data unlikely to change (adjust `after` parameter based on update patterns)
@@ -180,7 +180,7 @@ ALTER TABLE your_table_name SET (
     timescaledb.enable_columnstore,
     timescaledb.segmentby = 'entity_id',
     timescaledb.orderby = 'timestamp DESC',
-    timescaledb.sparse_index = 'minmax(value_1),bloom(user_id),...'
+    timescaledb.sparse_index = 'minmax(value_1),...'
 );
 
 -- Adjust `after` parameter based on update patterns

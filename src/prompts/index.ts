@@ -21,6 +21,8 @@ function loadPrompts() {
 
     promptsMap.set(promptName, {
       name: promptName,
+      // Using the snake_case name as the title to work around a problem in Claude Code
+      // See https://github.com/anthropics/claude-code/issues/7464
       title: promptName,
       description: data.description,
       content: content.trim(),

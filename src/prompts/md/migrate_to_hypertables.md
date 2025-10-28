@@ -144,7 +144,7 @@ ALTER TABLE your_table_name SET (
 );
 
 -- Compress after data unlikely to change (adjust `after` parameter based on update patterns)
-SELECT add_columnstore_policy('your_table_name', after => INTERVAL '7 days');
+CALL add_columnstore_policy('your_table_name', after => INTERVAL '7 days');
 ```
 
 ## Step 2: Migration Planning
@@ -184,7 +184,7 @@ ALTER TABLE your_table_name SET (
 );
 
 -- Adjust `after` parameter based on update patterns
-SELECT add_columnstore_policy('your_table_name', after => INTERVAL '7 days');
+CALL add_columnstore_policy('your_table_name', after => INTERVAL '7 days');
 ```
 
 #### Option 2: Blue-Green (Tables > 1GB)

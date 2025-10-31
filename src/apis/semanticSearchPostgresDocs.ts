@@ -82,7 +82,7 @@ SELECT
  ORDER BY distance
  LIMIT $3
 `,
-      [JSON.stringify(embedding), version || 17, limit || 10],
+      [JSON.stringify(embedding), version ?? 17, limit ?? 10],
     );
 
     return {

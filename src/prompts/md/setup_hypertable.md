@@ -170,7 +170,7 @@ Set `after` interval for when: data becomes mostly immutable (some updates/backf
 
 ```sql
 -- Adjust 'after' based on update patterns
-SELECT add_columnstore_policy('your_table_name', after => INTERVAL '1 day');
+CALL add_columnstore_policy('your_table_name', after => INTERVAL '1 day');
 ```
 
 ## Step 3: Retention Policy
@@ -304,7 +304,7 @@ ALTER MATERIALIZED VIEW your_table_hourly SET (
     timescaledb.segmentby = 'entity_id, category',
     timescaledb.orderby = 'bucket DESC'
 );
-SELECT add_columnstore_policy('your_table_hourly', after => INTERVAL '3 days');
+CALL add_columnstore_policy('your_table_hourly', after => INTERVAL '3 days');
 
 -- Daily
 ALTER MATERIALIZED VIEW your_table_daily SET (
@@ -312,7 +312,7 @@ ALTER MATERIALIZED VIEW your_table_daily SET (
     timescaledb.segmentby = 'entity_id, category',
     timescaledb.orderby = 'bucket DESC'
 );
-SELECT add_columnstore_policy('your_table_daily', after => INTERVAL '7 days');
+CALL add_columnstore_policy('your_table_daily', after => INTERVAL '7 days');
 ```
 
 ## Step 8: Aggregate Retention

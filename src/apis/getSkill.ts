@@ -8,11 +8,15 @@ const inputSchema = {
   name: z
     .enum(Array.from(skills.keys()) as [string, ...string[]])
     .describe('The name of the skill to retrieve'),
+  path: z
+    .string()
+    .default('SKILL.md')
+    .describe('Path within the skill directory (defaults to SKILL.md)'),
 } as const;
 
 const outputSchema = {
   name: z.string().describe('The name of the requested skill'),
-  title: z.string().describe('The display title of the skill'),
+  path: z.string().describe('The path within the skill (e.g., "SKILL.md")'),
   description: z.string().describe('Description of what this skill does'),
   content: z.string().describe('The full skill content'),
 } as const;
@@ -34,18 +38,18 @@ ${Array.from(skills.values()).map(s => `**${s.name}** - ${s.description}`).join(
     inputSchema,
     outputSchema,
   },
-  fn: async ({ name }) => {
+  fn: async ({ name, path }) => {
     const skill = skills.get(name);
 
     if (!skill) {
       throw new Error(`Skill '${name}' not found`);
     }
 
-    const content = await viewSkillContent(name);
+    const content = await viewSkillContent(name, path);
 
     return {
       name: skill.name,
-      title: skill.name, // Using name as title
+      path,
       description: skill.description || '',
       content,
     };

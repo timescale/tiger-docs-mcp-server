@@ -92,7 +92,8 @@ Retrieves curated skills for common PostgreSQL and TimescaleDB tasks.
 
 ```jsonc
 {
-  "name": "setup-timescaledb-hypertables"  // see available skills in tool description
+  "name": "setup-timescaledb-hypertables",  // see available skills in tool description
+  "path": "SKILL.md"  // optional, defaults to "SKILL.md"
 }
 ```
 
@@ -101,7 +102,7 @@ Retrieves curated skills for common PostgreSQL and TimescaleDB tasks.
 ```jsonc
 {
   "name": "setup-timescaledb-hypertables",
-  "title": "setup-timescaledb-hypertables",
+  "path": "SKILL.md",
   "description": "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates.",
   "content": "..."  // full skill content
 }

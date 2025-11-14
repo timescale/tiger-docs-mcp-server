@@ -1,5 +1,5 @@
 ---
-title: PostgreSQL Hypertable Candidate Analysis
+name: find-hypertable-candidates
 description: Analyze an existing PostgreSQL database to identify tables that would benefit from conversion to TimescaleDB hypertables
 ---
 

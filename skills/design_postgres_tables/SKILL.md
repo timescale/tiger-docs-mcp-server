@@ -1,5 +1,5 @@
 ---
-title: PostgreSQL Table Design
+name: design-postgres-tables
 description: Comprehensive PostgreSQL-specific table design reference covering data types, indexing, constraints, performance patterns, and advanced features
 ---
 

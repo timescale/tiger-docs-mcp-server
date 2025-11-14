@@ -1,12 +1,12 @@
 import { ApiFactory } from '@tigerdata/mcp-boilerplate';
 import { z } from 'zod';
 import { ServerContext } from '../types.js';
-import { prompts } from '../prompts/index.js';
+import { skills, viewSkillContent } from '../prompts/index.js';
 
 // Create enum schema dynamically
 const inputSchema = {
   name: z
-    .enum(Array.from(prompts.keys()) as [string, ...string[]])
+    .enum(Array.from(skills.keys()) as [string, ...string[]])
     .describe('The name of the prompt template to retrieve'),
 } as const;
 
@@ -29,23 +29,25 @@ export const getPromptTemplateFactory: ApiFactory<
 
 Available Templates:
 
-${Array.from(prompts.values()).map(p => `**${p.name}** - ${p.description}`).join('\n\n')}
+${Array.from(skills.values()).map(s => `**${s.name}** - ${s.description}`).join('\n\n')}
 `,
     inputSchema,
     outputSchema,
   },
   fn: async ({ name }) => {
-    const prompt = prompts.get(name);
+    const skill = skills.get(name);
 
-    if (!prompt) {
+    if (!skill) {
       throw new Error(`Prompt template '${name}' not found`);
     }
 
+    const content = await viewSkillContent(name);
+
     return {
-      name: prompt.name,
-      title: prompt.title || prompt.name,
-      description: prompt.description || '',
-      content: prompt.content,
+      name: skill.name,
+      title: skill.name, // Using name as title for backward compatibility
+      description: skill.description || '',
+      content,
     };
   },
 });

@@ -1,5 +1,5 @@
 ---
-title: PostgreSQL to TimescaleDB Hypertable Migration
+name: migrate-postgres-tables-to-hypertables
 description: Comprehensive guide for migrating PostgreSQL tables to TimescaleDB hypertables with optimal configuration and performance validation
 ---
 

@@ -13,7 +13,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && rm -f dist/prompts/md/* && shx cp -r src/prompts/md dist/prompts/ && shx chmod +x dist/*.js",
+    "build": "tsc && shx rm -rf dist/skills && shx cp -r skills dist/ && shx chmod +x dist/*.js",
     "prepare": "npm run build",
     "watch": "tsx watch src/index.ts stdio",
     "watch:http": "tsx watch src/index.ts http",
@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.16",
-    "@tigerdata/mcp-boilerplate": "^0.4.0",
+    "@tigerdata/mcp-boilerplate": "^0.5.0",
     "ai": "^5.0.17",
     "dotenv": "^17.2.0",
     "gray-matter": "^4.0.3",

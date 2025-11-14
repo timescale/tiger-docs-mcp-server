@@ -2,58 +2,241 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { readdirSync, readFileSync } from 'fs';
 import matter from 'gray-matter';
+import { z } from 'zod';
+import { log, type PromptFactory } from '@tigerdata/mcp-boilerplate';
+import { ServerContext } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const markdownPromptsDir = join(__dirname, 'md');
+// Skills directory at repo root level
+const skillsDir = join(__dirname, '..', '..', 'skills');
 
-// Load all markdown prompts with their metadata
-function loadPrompts() {
-  const files = readdirSync(markdownPromptsDir).filter((file) =>
-    file.endsWith('.md'),
-  );
-  const promptsMap = new Map();
+// ===== Skill Types (simplified for local-only skills) =====
 
-  for (const file of files) {
-    const promptName = file.replace('.md', '');
-    const filePath = join(markdownPromptsDir, file);
-    const fileContent = readFileSync(filePath, 'utf-8');
-    const { data, content } = matter(fileContent);
+export const zSkillMatter = z.object({
+  name: z.string().trim().min(1),
+  description: z.string(),
+});
+export type SkillMatter = z.infer<typeof zSkillMatter>;
 
-    promptsMap.set(promptName, {
-      name: promptName,
-      // Using the snake_case name as the title to work around a problem in Claude Code
-      // See https://github.com/anthropics/claude-code/issues/7464
-      title: promptName,
-      description: data.description,
-      content: content.trim(),
-    });
-  }
-
-  return promptsMap;
+export interface LocalSkill {
+  type: 'local';
+  path: string;
+  name: string;
+  description: string;
 }
 
-export const prompts = loadPrompts();
+export type Skill = LocalSkill;
 
-export const promptFactories = Array.from(prompts.entries()).map(
-  ([name, promptData]) =>
+// ===== Skill Loading Implementation =====
+
+// Cache for skill content
+let skillContentCache: Map<string, string> = new Map();
+let skillMapPromise: Promise<Map<string, Skill>> | null = null;
+
+/**
+ * Parse a SKILL.md file and validate its metadata
+ */
+const parseSkillFile = async (
+  fileContent: string,
+): Promise<{
+  matter: SkillMatter;
+  content: string;
+}> => {
+  const { data, content } = matter(fileContent);
+  const skillMatter = zSkillMatter.parse(data);
+
+  // Normalize skill name
+  if (!/^[a-zA-Z0-9-_]+$/.test(skillMatter.name)) {
+    const normalized = skillMatter.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-_]/g, '_')
+      .replace(/-[-_]+/g, '-')
+      .replace(/_[_-]+/g, '_')
+      .replace(/(^[-_]+)|([-_]+$)/g, '');
+    log.warn(
+      `Skill name "${skillMatter.name}" contains invalid characters. Normalizing to "${normalized}".`,
+    );
+    skillMatter.name = normalized;
+  }
+
+  return {
+    matter: skillMatter,
+    content: content.trim(),
+  };
+};
+
+/**
+ * Load all skills from the filesystem
+ */
+async function doLoadSkills(): Promise<Map<string, Skill>> {
+  const skills = new Map<string, Skill>();
+  skillContentCache.clear();
+
+  const alreadyExists = (
+    name: string,
+    path: string,
+  ): boolean => {
+    const existing = skills.get(name);
+    if (existing) {
+      log.warn(
+        `Skill with name "${name}" already loaded from path "${existing.path}". Skipping duplicate at path "${path}".`,
+      );
+      return true;
+    }
+    return false;
+  };
+
+  const loadLocalPath = async (path: string) => {
+    const skillPath = join(path, 'SKILL.md');
+    try {
+      const fileContent = readFileSync(skillPath, 'utf-8');
+      const {
+        matter: { name, description },
+        content,
+      } = await parseSkillFile(fileContent);
+
+      if (alreadyExists(name, path)) return;
+
+      skills.set(name, {
+        type: 'local',
+        path,
+        name,
+        description,
+      });
+
+      skillContentCache.set(`${name}/SKILL.md`, content);
+    } catch (err) {
+      log.error(`Failed to load skill at path: ${skillPath}`, err as Error);
+    }
+  };
+
+  try {
+    // Load skills from subdirectories with SKILL.md files
+    const dirEntries = readdirSync(skillsDir, { withFileTypes: true });
+    for (const entry of dirEntries) {
+      if (!entry.isDirectory()) continue;
+      await loadLocalPath(join(skillsDir, entry.name));
+    }
+
+    if (skills.size === 0) {
+      log.warn('No skills found. Please add SKILL.md files to the skills/ subdirectories.');
+    } else {
+      log.info(`Successfully loaded ${skills.size} skill(s)`);
+    }
+
+  } catch (err) {
+    log.error('Failed to load skills', err as Error);
+  }
+
+  return skills;
+}
+
+/**
+ * Load skills with caching
+ */
+export const loadSkills = async (
+  force = false,
+): Promise<Map<string, Skill>> => {
+  if (skillMapPromise && !force) {
+    return skillMapPromise;
+  }
+
+  skillMapPromise = doLoadSkills().catch((err) => {
+    log.error('Failed to load skills', err as Error);
+    skillMapPromise = null;
+    return new Map<string, Skill>();
+  });
+
+  return skillMapPromise;
+};
+
+/**
+ * Resolve a specific skill by name
+ */
+export const resolveSkill = async (
+  skillName: string,
+  force = false,
+): Promise<Skill | null> => {
+  const skills = await loadSkills(force);
+  return skills.get(skillName) || null;
+};
+
+/**
+ * View skill content
+ */
+export const viewSkillContent = async (
+  name: string,
+  targetPath = 'SKILL.md',
+): Promise<string> => {
+  const skill = await resolveSkill(name);
+  if (!skill) {
+    throw new Error(`Skill not found: ${name}`);
+  }
+
+  const cacheKey = `${name}/${targetPath}`;
+  const cached = skillContentCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // Read from filesystem
+  try {
+    const fullPath = join(skill.path, targetPath);
+    const content = readFileSync(fullPath, 'utf-8');
+    skillContentCache.set(cacheKey, content);
+    return content;
+  } catch (err) {
+    throw new Error(`Failed to read skill content: ${name}/${targetPath}`);
+  }
+};
+
+/**
+ * List all available skills
+ */
+export const listSkills = async (
+  force = false,
+): Promise<Array<{ name: string; description: string }>> => {
+  const skills = await loadSkills(force);
+  return Array.from(skills.values()).map((s) => ({
+    name: s.name,
+    description: s.description,
+  }));
+};
+
+// Initialize skills on module load
+export const skills = await loadSkills();
+
+// Export prompt factories for MCP server
+export const promptFactories: PromptFactory<ServerContext, {}>[] = Array.from(skills.entries()).map(
+  ([name, skillData]) =>
     () => ({
       name,
       config: {
-        title: promptData.title,
-        description: promptData.description,
+        // Using the snake_case name as the title to work around a problem in Claude Code
+        // See https://github.com/anthropics/claude-code/issues/7464
+        title: name,
+        description: skillData.description,
         inputSchema: {}, // No arguments for static prompts
       },
-      fn: async () => ({
-        description: promptData.description || promptData.title || name,
-        messages: [
-          {
-            role: 'user' as const,
-            content: {
-              type: 'text' as const,
-              text: promptData.content,
+      fn: async () => {
+        const content = await viewSkillContent(name);
+        return {
+          description: skillData.description || name,
+          messages: [
+            {
+              role: 'user' as const,
+              content: {
+                type: 'text' as const,
+                text: content,
+              },
             },
-          },
-        ],
-      }),
+          ],
+        };
+      },
     }),
 );
+
+// Aliases for backward compatibility
+export const prompts = skills;
+export const loadPrompts = loadSkills;

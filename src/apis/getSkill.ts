@@ -1,7 +1,7 @@
 import { ApiFactory } from '@tigerdata/mcp-boilerplate';
 import { z } from 'zod';
 import { ServerContext } from '../types.js';
-import { skills, viewSkillContent } from '../skills/index.js';
+import { skills, viewSkillContent } from '../skillutils/index.js';
 
 // Create enum schema dynamically
 const inputSchema = {

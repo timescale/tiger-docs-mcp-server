@@ -207,17 +207,17 @@ export const listSkills = async (
 // Initialize skills on module load
 export const skills = await loadSkills();
 
-// Export prompt factories for MCP server
+// Export skills as prompt factories for MCP server
 export const promptFactories: PromptFactory<ServerContext, {}>[] = Array.from(skills.entries()).map(
   ([name, skillData]) =>
     () => ({
       name,
       config: {
-        // Using the snake_case name as the title to work around a problem in Claude Code
+        // Using the dash-separated name as the title to work around a problem in Claude Code
         // See https://github.com/anthropics/claude-code/issues/7464
         title: name,
         description: skillData.description,
-        inputSchema: {}, // No arguments for static prompts
+        inputSchema: {}, // No arguments for static skills
       },
       fn: async () => {
         const content = await viewSkillContent(name);
@@ -236,7 +236,3 @@ export const promptFactories: PromptFactory<ServerContext, {}>[] = Array.from(sk
       },
     }),
 );
-
-// Aliases for backward compatibility
-export const prompts = skills;
-export const loadPrompts = loadSkills;

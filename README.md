@@ -1,6 +1,6 @@
 # Tiger Docs MCP Server
 
-An [MCP server](https://modelcontextprotocol.io/docs/learn/server-concepts) that supercharges AI assistants with deep PostgreSQL, TimescaleDB, and Tiger Cloud knowledge through semantic documentation search and curated prompt templates. 
+An [MCP server](https://modelcontextprotocol.io/docs/learn/server-concepts) that supercharges AI assistants with deep PostgreSQL, TimescaleDB, and Tiger Cloud knowledge through semantic documentation search and curated skills. 
 
 ## Quick Start
 
@@ -82,17 +82,17 @@ Searches the TigerData and TimescaleDB documentation using semantic similarity.
 
 Same format as PostgreSQL semantic search above.
 
-### Prompt Templates
+### Skills
 
-Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
+Retrieves curated skills for common PostgreSQL and TimescaleDB tasks.
 
-**MCP Tool**: `get_prompt_template`
+**MCP Tool**: `get_skill`
 
 #### Input
 
 ```jsonc
 {
-  "name": "setup_hypertable"  // see available prompt templates in tool description
+  "name": "setup-timescaledb-hypertables"  // see available skills in tool description
 }
 ```
 
@@ -100,14 +100,14 @@ Retrieves curated prompt templates for common PostgreSQL and TimescaleDB tasks.
 
 ```jsonc
 {
-  "name": "setup_hypertable",
-  "title": "TimescaleDB Complete Setup",
+  "name": "setup-timescaledb-hypertables",
+  "title": "setup-timescaledb-hypertables",
   "description": "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates.",
-  "content": "..."  // full prompt template content
+  "content": "..."  // full skill content
 }
 ```
 
-**Available Prompt Templates**: Check the MCP tool description for the current list of available prompt templates.
+**Available Skills**: Check the MCP tool description for the current list of available skills.
 
 ## Development
 

@@ -9,11 +9,10 @@ const inputSchema = {
   name: z
     .enum(Array.from(skills.keys()) as [string, ...string[]])
     .describe('The name of the skill to retrieve'),
-  path: z
-    .string()
-    .default('SKILL.md')
-    .describe('Path within the skill directory (defaults to SKILL.md)'),
 } as const;
+
+// Path within the skill directory - currently fixed to SKILL.md
+const SKILL_PATH = 'SKILL.md';
 
 const outputSchema = {
   name: z.string().describe('The name of the requested skill'),
@@ -22,7 +21,7 @@ const outputSchema = {
   content: z.string().describe('The full skill content'),
 } as const;
 
-export const getSkillFactory: ApiFactory<
+export const viewSkillFactory: ApiFactory<
   ServerContext,
   typeof inputSchema,
   typeof outputSchema
@@ -36,9 +35,9 @@ export const getSkillFactory: ApiFactory<
   }
 
   return {
-    name: 'get_skill',
+    name: 'view_skill',
     config: {
-      title: 'Get Skill',
+      title: 'View Skill',
       description: `Retrieve detailed skills for TimescaleDB operations and best practices.
 
 Available Skills:
@@ -48,18 +47,18 @@ ${Array.from(skills.values()).map(s => `**${s.name}** - ${s.description}`).join(
       inputSchema,
       outputSchema,
     },
-    fn: async ({ name, path }) => {
+    fn: async ({ name }) => {
       const skill = skills.get(name);
 
       if (!skill) {
         throw new Error(`Skill '${name}' not found`);
       }
 
-      const content = await viewSkillContent(name, path);
+      const content = await viewSkillContent(name, SKILL_PATH);
 
       return {
         name: skill.name,
-        path,
+        path: SKILL_PATH,
         description: skill.description || '',
         content,
       };

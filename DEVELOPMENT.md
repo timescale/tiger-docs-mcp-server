@@ -56,7 +56,7 @@ DISABLE_MCP_SKILLS=1 node dist/index.js stdio
 
 | Parameter | HTTP Query | Stdio Env Var | Values | Description |
 |-----------|------------|---------------|--------|-------------|
-| Disable MCP Skills | `disable_mcp_skills` | `DISABLE_MCP_SKILLS` | 1 or true | Disable all MCP skills (tools and prompt templates). This removes the `get_skill` tool and all skill-based prompt templates from the available capabilities. |
+| Disable MCP Skills | `disable_mcp_skills` | `DISABLE_MCP_SKILLS` | 1 or true | Disable all MCP skills (tools and prompt templates). This removes the `view_skill` tool and all skill-based prompt templates from the available capabilities. |
 
 **Examples:**
 - HTTP: `?disable_mcp_skills=1`

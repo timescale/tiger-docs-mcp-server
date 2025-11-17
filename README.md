@@ -107,7 +107,7 @@ Same format as PostgreSQL semantic search above.
 Retrieves curated skills for common PostgreSQL and TimescaleDB tasks. This tool is disabled
 when deploying as a claude plugin (which use [agent skills ](https://www.claude.com/blog/skills) directly).
 
-**MCP Tool**: `get_skill`
+**MCP Tool**: `view_skill`
 
 #### Input
 

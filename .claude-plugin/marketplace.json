@@ -39,7 +39,7 @@
       "mcpServers": {
         "pg-aiguide": {
           "type": "http",
-          "url": "https://mcp.tigerdata.com/docs"
+          "url": "https://mcp.tigerdata.com/docs?disable_mcp_skills=1"
         }
       },
       "strict": false

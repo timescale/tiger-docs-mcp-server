@@ -1,6 +1,6 @@
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { readdirSync, readFileSync } from 'fs';
+import { readdir, readFile } from 'fs/promises';
 import matter from 'gray-matter';
 import { z } from 'zod';
 import { log, type PromptFactory } from '@tigerdata/mcp-boilerplate';
@@ -88,7 +88,7 @@ async function doLoadSkills(): Promise<Map<string, Skill>> {
   const loadLocalPath = async (path: string) => {
     const skillPath = join(path, 'SKILL.md');
     try {
-      const fileContent = readFileSync(skillPath, 'utf-8');
+      const fileContent = await readFile(skillPath, 'utf-8');
       const {
         matter: { name, description },
         content,
@@ -110,7 +110,7 @@ async function doLoadSkills(): Promise<Map<string, Skill>> {
 
   try {
     // Load skills from subdirectories with SKILL.md files
-    const dirEntries = readdirSync(skillsDir, { withFileTypes: true });
+    const dirEntries = await readdir(skillsDir, { withFileTypes: true });
     for (const entry of dirEntries) {
       if (!entry.isDirectory()) continue;
       await loadLocalPath(join(skillsDir, entry.name));
@@ -170,7 +170,7 @@ export const viewSkillContent = async (
   // Read from filesystem
   try {
     const fullPath = join(skill.path, targetPath);
-    const content = readFileSync(fullPath, 'utf-8');
+    const content = await readFile(fullPath, 'utf-8');
     skillContentCache.set(cacheKey, content);
     return content;
   } catch (err) {

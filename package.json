@@ -1,13 +1,13 @@
 {
-  "name": "@tigerdata/tiger-docs-mcp-server",
+  "name": "@tigerdata/pg-aiguide",
   "version": "0.1.0",
-  "description": "MCP server to expose an API around our embedded docs database",
-  "license": "UNLICENSED",
+  "description": "Comprehensive PostgreSQL documentation and best practices through semantic search and curated skills, including ecosystem tools like TimescaleDB and Tiger Cloud",
+  "license": "Apache-2.0",
   "author": "TigerData",
   "homepage": "https://tigerdata.com",
   "type": "module",
   "bin": {
-    "tiger-docs-mcp-server": "dist/index.js"
+    "pg-aiguide": "dist/index.js"
   },
   "files": [
     "dist"

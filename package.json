@@ -25,7 +25,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.16",
     "@tigerdata/mcp-boilerplate": "^0.5.0",
-    "ai": "^5.0.17",
+    "ai": "^5.0.52",
     "dotenv": "^17.2.0",
     "gray-matter": "^4.0.3",
     "migrate": "^2.1.0",

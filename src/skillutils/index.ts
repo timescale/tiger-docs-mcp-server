@@ -10,7 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Skills directory at repo root level
 const skillsDir = join(__dirname, '..', '..', 'skills');
 
-// ===== Skill Types (simplified for local-only skills) =====
+// ===== Skill Types =====
 
 export const zSkillMatter = z.object({
   name: z.string().trim().min(1),
@@ -18,14 +18,12 @@ export const zSkillMatter = z.object({
 });
 export type SkillMatter = z.infer<typeof zSkillMatter>;
 
-export interface LocalSkill {
-  type: 'local';
-  path: string;
-  name: string;
-  description: string;
-}
-
-export type Skill = LocalSkill;
+export const zSkill = z.object({
+  path: z.string(),
+  name: z.string(),
+  description: z.string(),
+});
+export type Skill = z.infer<typeof zSkill>;
 
 // ===== Skill Loading Implementation =====
 
@@ -99,7 +97,6 @@ async function doLoadSkills(): Promise<Map<string, Skill>> {
       if (alreadyExists(name, path)) return;
 
       skills.set(name, {
-        type: 'local',
         path,
         name,
         description,
@@ -152,24 +149,14 @@ export const loadSkills = async (
 };
 
 /**
- * Resolve a specific skill by name
- */
-export const resolveSkill = async (
-  skillName: string,
-  force = false,
-): Promise<Skill | null> => {
-  const skills = await loadSkills(force);
-  return skills.get(skillName) || null;
-};
-
-/**
  * View skill content
  */
 export const viewSkillContent = async (
   name: string,
   targetPath = 'SKILL.md',
 ): Promise<string> => {
-  const skill = await resolveSkill(name);
+  const skillsMap = await loadSkills();
+  const skill = skillsMap.get(name);
   if (!skill) {
     throw new Error(`Skill not found: ${name}`);
   }
@@ -189,19 +176,6 @@ export const viewSkillContent = async (
   } catch (err) {
     throw new Error(`Failed to read skill content: ${name}/${targetPath}`);
   }
-};
-
-/**
- * List all available skills
- */
-export const listSkills = async (
-  force = false,
-): Promise<Array<{ name: string; description: string }>> => {
-  const skills = await loadSkills(force);
-  return Array.from(skills.values()).map((s) => ({
-    name: s.name,
-    description: s.description,
-  }));
 };
 
 // Initialize skills on module load

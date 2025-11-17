@@ -1,11 +1,11 @@
 ---
-title: PostgreSQL Hypertable Candidate Analysis
+name: find-hypertable-candidates
 description: Analyze an existing PostgreSQL database to identify tables that would benefit from conversion to TimescaleDB hypertables
 ---
 
 # PostgreSQL Hypertable Candidate Analysis
 
-Identify tables that would benefit from TimescaleDB hypertable conversion. After identification, use the companion "migrate_to_hypertables" prompt template for configuration and migration.
+Identify tables that would benefit from TimescaleDB hypertable conversion. After identification, use the companion "migrate-postgres-tables-to-hypertables" skill for configuration and migration.
 
 ## TimescaleDB Benefits
 
@@ -162,7 +162,7 @@ CREATE TABLE orders (
 
 Note: For ID-based tables where there is also a time column (created_at, ordered_at, etc.),
 you can partition by ID and use sparse indexes on the time column.
-See the `migrate_to_hypertables` prompt template for details.
+See the `migrate-postgres-tables-to-hypertables` skill for details.
 
 ## Step 2: Candidacy Scoring (8+ points = good candidate)
 

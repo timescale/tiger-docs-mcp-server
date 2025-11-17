@@ -1,0 +1,48 @@
+{
+  "name": "aiguide",
+  "owner": {
+    "name": "TigerData",
+    "url": "https://tigerdata.com",
+    "email": "support@tigerdata.com"
+  },
+  "metadata": {
+    "description": "PostgreSQL documentation and ecosystem tools marketplace",
+    "version": "1.0.0",
+    "pluginRoot": "."
+  },
+  "plugins": [
+    {
+      "name": "pg",
+      "source": "./",
+      "description": "Comprehensive PostgreSQL documentation and best practices through semantic search and curated skills, including ecosystem tools like TimescaleDB and Tiger Cloud",
+      "version": "0.1.0",
+      "author": {
+        "name": "TigerData",
+        "url": "https://tigerdata.com"
+      },
+      "homepage": "https://tigerdata.com",
+      "repository": "https://github.com/timescale/pg-aiguide",
+      "license": "Apache-2.0",
+      "keywords": [
+        "postgresql",
+        "postgres",
+        "database",
+        "sql",
+        "skills",
+        "aiguide",
+        "timescaledb",
+        "documentation",
+        "semantic-search",
+        "best-practices"
+      ],
+      "category": "database",
+      "mcpServers": {
+        "pg-aiguide": {
+          "type": "http",
+          "url": "https://mcp.tigerdata.com/docs?disable_mcp_skills=1"
+        }
+      },
+      "strict": false
+    }
+  ]
+}

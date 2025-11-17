@@ -1,5 +1,5 @@
 ---
-title: PostgreSQL to TimescaleDB Hypertable Migration
+name: migrate-postgres-tables-to-hypertables
 description: Comprehensive guide for migrating PostgreSQL tables to TimescaleDB hypertables with optimal configuration and performance validation
 ---
 
@@ -7,7 +7,7 @@ description: Comprehensive guide for migrating PostgreSQL tables to TimescaleDB 
 
 Migrate identified PostgreSQL tables to TimescaleDB hypertables with optimal configuration, migration planning and validation.
 
-**Prerequisites**: Tables already identified as hypertable candidates (use companion "find_hypertable_candidates" prompt template if needed).
+**Prerequisites**: Tables already identified as hypertable candidates (use companion "find-hypertable-candidates" skill if needed).
 
 ## Step 1: Optimal Configuration
 
@@ -115,7 +115,7 @@ IMPORTANT: DO NOT modify the primary key/unique constraint without user permissi
 
 ### Compression Configuration
 
-For detailed segment_by and order_by selection, see "setup_hypertable" prompt template. Quick reference:
+For detailed segment_by and order_by selection, see "setup-timescaledb-hypertables" skill. Quick reference:
 
 **segment_by:** Most common WHERE filter with >100 rows per value per chunk
 - IoT: `device_id`

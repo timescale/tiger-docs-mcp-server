@@ -5,7 +5,7 @@
 Clone the repo.
 
 ```bash
-git clone git@github.com:timescale/tiger-docs-mcp-server.git
+git clone git@github.com:timescale/pg-aiguide.git
 ```
 
 ## Configuration
@@ -33,7 +33,7 @@ Use environment variables in the connection configuration:
 ```json
 {
   "mcpServers": {
-    "tiger-docs": {
+    "pg-aiguide": {
       "command": "node",
       "args": [
         "/path/to/dist/index.js",
@@ -85,7 +85,7 @@ Run the database in a docker container.
 docker pull timescale/timescaledb-ha:pg17
 
 # run the database container
-docker run -d --name tiger-docs \
+docker run -d --name pg-aiguide \
   -e POSTGRES_PASSWORD=password \
   -e POSTGRES_DB=tsdb \
   -e POSTGRES_USER=tsdbadmin \
@@ -128,15 +128,15 @@ npm run inspector
 
 ### Testing in Claude Desktop
 
-Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config.json` to add an entry like the following, making sure to use the absolute path to your local `tiger-docs-mcp-server` project, and real database credentials.
+Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config.json` to add an entry like the following, making sure to use the absolute path to your local `pg-aiguide` project, and real database credentials.
 
 ```json
 {
   "mcpServers": {
-    "tiger-docs": {
+    "pg-aiguide": {
       "command": "node",
       "args": [
-        "/absolute/path/to/tiger-docs-mcp-server/dist/index.js",
+        "/absolute/path/to/pg-aiguide/dist/index.js",
         "stdio"
       ],
       "env": {

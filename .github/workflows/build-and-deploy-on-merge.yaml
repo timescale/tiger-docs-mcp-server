@@ -18,7 +18,7 @@ jobs:
           ref: 'main'
           inputs: >
             {
-              "repository": "tiger-docs-mcp-server",
+              "repository": "pg-aiguide",
               "sha": "${{ github.sha }}",
               "latest": true
             }
@@ -44,7 +44,7 @@ jobs:
           ref: 'main'
           inputs: >
             {
-              "repository": "tiger-docs-mcp-server",
+              "repository": "pg-aiguide",
               "sha": "${{ github.sha }}",
               "env": "${{ matrix.env }}",
               "namespace": "${{ matrix.namespace }}"

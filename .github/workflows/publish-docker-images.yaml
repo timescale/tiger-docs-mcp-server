@@ -23,8 +23,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            docker.io/timescale/tiger-docs-mcp
-            ghcr.io/timescale/tiger-docs-mcp
+            docker.io/timescale/pg-aiguide
+            ghcr.io/timescale/pg-aiguide
           tags: |
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
             type=semver,pattern={{version}}

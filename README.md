@@ -10,7 +10,7 @@ or a [claude plugin](https://www.claude.com/blog/claude-code-plugins). The claud
 
 ## Quick Start
 
-Want to use this MCP Server without running it yourself? Use the publicly available endpoint hosted by TigerData! [https://mcp.tigerdata.com/docs](https://mcp.tigerdata.com/docs)
+This project can be installed as a Claude Code plugin or used as a free MCP server available at [https://mcp.tigerdata.com/docs](https://mcp.tigerdata.com/docs). 
 
 **Claude Code** installation: 
 
@@ -27,8 +27,7 @@ publicly available MCP server endpoint hosted by TigerData for searching Postgre
 
 **Publicly available MCP Server**
 
-This is the publicly available MCP server endpoint hosted by TigerData. It exposes both the skills and PostgreSQL documentation
-search capabilities through MCP tools. This can be used by Cursor, Windsurf, Codex, or any other agent that [supports MCP](https://modelcontextprotocol.io/clients).
+This project is publicly available through a free [MCP server](https://mcp.tigerdata.com/docs) hosted by TigerData. It exposes both the skills and PostgreSQL documentation search capabilities through MCP tools. This can be used by Cursor, Windsurf, Codex, or any other agent that [supports MCP](https://modelcontextprotocol.io/clients).
 
 ```
 https://mcp.tigerdata.com/docs

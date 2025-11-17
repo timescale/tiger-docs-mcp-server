@@ -1,6 +1,6 @@
 {
   "name": "@tigerdata/pg-aiguide",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Comprehensive PostgreSQL documentation and best practices through semantic search and curated skills, including ecosystem tools like TimescaleDB and Tiger Cloud",
   "license": "Apache-2.0",
   "author": "TigerData",
@@ -13,7 +13,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && shx rm -rf dist/skills && shx cp -r skills dist/ && shx chmod +x dist/*.js",
+    "build": "tsc && shx chmod +x dist/*.js",
     "prepare": "npm run build",
     "watch": "tsx watch src/index.ts stdio",
     "watch:http": "tsx watch src/index.ts http",

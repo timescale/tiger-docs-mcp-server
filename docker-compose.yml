@@ -28,6 +28,7 @@ services:
     volumes:
       - ./migrations:/app/migrations
       - ./src:/app/src
+      - ./skills:/app/skills
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json

@@ -29,13 +29,9 @@ export const viewSkillFactory: ApiFactory<
   // Parse feature flags from query or environment
   const flags = parseFeatureFlags(query);
 
-  // Return disabled factory if MCP skills are disabled
-  if (!flags.mcpSkillsEnabled) {
-    return { disabled: true } as any;
-  }
-
   return {
     name: 'view_skill',
+    disabled: !flags.mcpSkillsEnabled,
     config: {
       title: 'View Skill',
       description: `Retrieve detailed skills for TimescaleDB operations and best practices.

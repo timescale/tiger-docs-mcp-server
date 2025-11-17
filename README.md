@@ -25,6 +25,51 @@ claude mcp add --transport http tiger-docs https://mcp.tigerdata.com/docs
 }
 ```
 
+## Configuration Parameters
+
+The server supports disabling MCP skills through different mechanisms for each transport:
+
+### HTTP Transport
+Pass parameters as query strings:
+```
+https://mcp.tigerdata.com/docs?disable_mcp_skills=1
+```
+
+### Stdio Transport
+Use environment variables in the connection configuration:
+```json
+{
+  "mcpServers": {
+    "tiger-docs": {
+      "command": "node",
+      "args": [
+        "/path/to/dist/index.js",
+        "stdio"
+      ],
+      "env": {
+        "DISABLE_MCP_SKILLS": "1"
+      }
+    }
+  }
+}
+```
+
+Or when running directly:
+```bash
+DISABLE_MCP_SKILLS=1 node dist/index.js stdio
+```
+
+### Available Parameters
+
+| Parameter | HTTP Query | Stdio Env Var | Values | Description |
+|-----------|------------|---------------|--------|-------------|
+| Disable MCP Skills | `disable_mcp_skills` | `DISABLE_MCP_SKILLS` | 1 or true | Disable all MCP skills (tools and prompt templates). This removes the `get_skill` tool and all skill-based prompt templates from the available capabilities. |
+
+**Examples:**
+- HTTP: `?disable_mcp_skills=1`
+- Stdio: `DISABLE_MCP_SKILLS=1`
+- Default (skills enabled): No parameter needed
+
 ## API
 
 All methods are exposed as MCP tools and REST API endpoints.

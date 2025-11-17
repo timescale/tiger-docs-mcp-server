@@ -39,7 +39,7 @@ https://mcp.tigerdata.com/docs
 // .cursor/mcp.json
 {
   "mcpServers": {
-    "tiger-docs": {
+    "pg-aiguide": {
       "url": "https://mcp.tigerdata.com/docs"
     }
   }

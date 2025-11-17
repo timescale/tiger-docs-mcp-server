@@ -33,7 +33,7 @@ Use environment variables in the connection configuration:
 ```json
 {
   "mcpServers": {
-    "tiger-docs": {
+    "pg-aiguide": {
       "command": "node",
       "args": [
         "/path/to/dist/index.js",
@@ -85,7 +85,7 @@ Run the database in a docker container.
 docker pull timescale/timescaledb-ha:pg17
 
 # run the database container
-docker run -d --name tiger-docs \
+docker run -d --name pg-aiguide \
   -e POSTGRES_PASSWORD=password \
   -e POSTGRES_DB=tsdb \
   -e POSTGRES_USER=tsdbadmin \
@@ -133,7 +133,7 @@ Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config
 ```json
 {
   "mcpServers": {
-    "tiger-docs": {
+    "pg-aiguide": {
       "command": "node",
       "args": [
         "/absolute/path/to/pg-aiguide/dist/index.js",

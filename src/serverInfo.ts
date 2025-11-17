@@ -4,7 +4,7 @@ import { schema } from './config.js';
 import { ServerContext } from './types.js';
 
 export const serverInfo = {
-  name: 'tiger-docs',
+  name: 'pg-aiguide',
   version: '1.0.0',
 } as const;
 

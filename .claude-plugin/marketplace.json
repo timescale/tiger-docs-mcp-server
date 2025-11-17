@@ -1,5 +1,5 @@
 {
-  "name": "pg-aiguide",
+  "name": "aiguide",
   "owner": {
     "name": "TigerData",
     "url": "https://tigerdata.com",
@@ -12,7 +12,7 @@
   },
   "plugins": [
     {
-      "name": "pg-aiguide",
+      "name": "pg",
       "source": "./",
       "description": "Comprehensive PostgreSQL documentation and best practices through semantic search and curated skills, including ecosystem tools like TimescaleDB and Tiger Cloud",
       "version": "0.1.0",

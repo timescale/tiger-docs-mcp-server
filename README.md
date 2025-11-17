@@ -17,8 +17,8 @@ Want to use this MCP Server without running it yourself? Use the publicly availa
 This repo serves as a claude code marketplace plugin. To install, run:
 
 ```bash
-claude plugin marketplace install timescale/pg-aiguide
-claude plugin install pg-aiguide@pg-aiguide
+claude plugin marketplace add timescale/pg-aiguide
+claude plugin install pg@aiguide
 ```
 
 This plugin uses the skills available in the `skills` directory as well as our

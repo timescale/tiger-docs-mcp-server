@@ -7,7 +7,7 @@ import { schema } from './config.js';
 
 // Use a hash of the project name
 const hash = createHash('sha256')
-  .update('tiger-docs-mcp-server')
+  .update('pg-aiguide')
   .digest('hex');
 const MIGRATION_ADVISORY_LOCK_ID = parseInt(hash.substring(0, 15), 16);
 
@@ -32,7 +32,7 @@ const createStateStore = () => {
         await client.query(/* sql */ `
           CREATE SCHEMA IF NOT EXISTS ${schema};
         `);
-        
+
         // Ensure migrations table exists
         await client.query(/* sql */ `
           CREATE TABLE IF NOT EXISTS ${schema}.migrations (

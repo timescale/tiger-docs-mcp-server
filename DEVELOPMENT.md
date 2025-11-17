@@ -5,7 +5,7 @@
 Clone the repo.
 
 ```bash
-git clone git@github.com:timescale/tiger-docs-mcp-server.git
+git clone git@github.com:timescale/pg-aiguide.git
 ```
 
 ## Configuration
@@ -128,7 +128,7 @@ npm run inspector
 
 ### Testing in Claude Desktop
 
-Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config.json` to add an entry like the following, making sure to use the absolute path to your local `tiger-docs-mcp-server` project, and real database credentials.
+Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config.json` to add an entry like the following, making sure to use the absolute path to your local `pg-aiguide` project, and real database credentials.
 
 ```json
 {
@@ -136,7 +136,7 @@ Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config
     "tiger-docs": {
       "command": "node",
       "args": [
-        "/absolute/path/to/tiger-docs-mcp-server/dist/index.js",
+        "/absolute/path/to/pg-aiguide/dist/index.js",
         "stdio"
       ],
       "env": {

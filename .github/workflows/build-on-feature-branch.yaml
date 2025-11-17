@@ -16,4 +16,4 @@ jobs:
           repo: tiger-agents-deploy
           workflow_id: build.yaml
           ref: 'main'
-          inputs: '{"repository": "tiger-docs-mcp-server", "sha": "${{ github.sha }}"}'
+          inputs: '{"repository": "pg-aiguide", "sha": "${{ github.sha }}"}'

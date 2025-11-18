@@ -2,7 +2,7 @@
 
 All methods are exposed as MCP tools.
 
-## Semantic Search 
+## Semantic Search
 
 ### `semantic_search_postgres_docs`
 

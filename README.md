@@ -1,4 +1,5 @@
-# pg-aiguide  
+# pg-aiguide
+
 **AI-optimized PostgreSQL expertise for coding assistants**
 
 pg-aiguide helps AI coding tools write dramatically better PostgreSQL code. It provides:
@@ -9,17 +10,17 @@ pg-aiguide helps AI coding tools write dramatically better PostgreSQL code. It p
 
 Use it either as:
 
-- a **public MCP server**, or  
+- a **public MCP server**, or
 - a **Claude Code plugin** with native skill support.
 
 ## ⭐ Why pg-aiguide?
 
 AI coding tools often generate Postgres code that is:
 
-- outdated  
-- missing constraints and indexes  
-- unaware of modern PG features  
-- inconsistent with real-world best practices  
+- outdated
+- missing constraints and indexes
+- unaware of modern PG features
+- inconsistent with real-world best practices
 
 pg-aiguide fixes that by giving AI agents deep, versioned PostgreSQL knowledge and proven patterns.
 
@@ -36,13 +37,14 @@ Prompt given to Claude Code:
 
 Result (summarized):
 
-- **4× more constraints**  
-- **55% more indexes** (including partial/expression indexes)  
-- **PG17-recommended patterns**  
-- **Modern features** (`GENERATED ALWAYS AS IDENTITY`, `NULLS NOT DISTINCT`)  
+- **4× more constraints**
+- **55% more indexes** (including partial/expression indexes)
+- **PG17-recommended patterns**
+- **Modern features** (`GENERATED ALWAYS AS IDENTITY`, `NULLS NOT DISTINCT`)
 - **Cleaner naming & documentation**
 
-Conclusion: *pg-aiguide produces more robust, performant, maintainable schemas.*
+Conclusion: _pg-aiguide produces more robust, performant, maintainable schemas._
+
 </details>
 
 ## 🚀 Quickstart
@@ -73,8 +75,6 @@ claude plugin marketplace add timescale/pg-aiguide
 claude plugin install pg@aiguide
 ```
 
-
-
 ### Install by environment
 
 #### One-click installs
@@ -99,7 +99,6 @@ claude plugin install pg@aiguide
 This plugin uses the skills available in the `skills` directory as well as our
 publicly available MCP server endpoint hosted by TigerData for searching PostgreSQL documentation.
 
-
 </details>
 
 <details>
@@ -118,9 +117,9 @@ codex mcp add --url "https://mcp.tigerdata.com/docs" pg-aiguide
 
 One-click install:
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=pg-aiguide&config=eyJ1cmwiOiJodHRwczovL21jcC50aWdlcmRhdGEuY29tL2RvY3MifQ%3D%3D) 
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=pg-aiguide&config=eyJ1cmwiOiJodHRwczovL21jcC50aWdlcmRhdGEuY29tL2RvY3MifQ%3D%3D)
 
-Or add the following to `.cursor/mcp.json` 
+Or add the following to `.cursor/mcp.json`
 
 ```json
 {
@@ -131,6 +130,7 @@ Or add the following to `.cursor/mcp.json`
   }
 }
 ```
+
 </details>
 
 <details>
@@ -139,7 +139,7 @@ Or add the following to `.cursor/mcp.json`
 Run the following to add the MCP server to Gemini CLI:
 
 ```bash
-gemini mcp add -s user pg-aiguide "https://mcp.tigerdata.com/docs" -t http 
+gemini mcp add -s user pg-aiguide "https://mcp.tigerdata.com/docs" -t http
 ```
 
 </details>
@@ -183,12 +183,10 @@ code-insiders --add-mcp '{"name":"pg-aiguide","type":"http","url":"https://mcp.t
 
 </details>
 
-
-
 <details>
 <summary> Windsurf </summary>
 
-Add the following to `~/.codeium/windsurf/mcp_config.json` 
+Add the following to `~/.codeium/windsurf/mcp_config.json`
 
 ```json
 {
@@ -199,6 +197,7 @@ Add the following to `~/.codeium/windsurf/mcp_config.json`
   }
 }
 ```
+
 </details>
 
 ### 💡 Your First Prompt
@@ -212,10 +211,10 @@ Once installed, pg-aiguide can answer Postgres questions or design schemas.
 **Complex schema example**
 
 > You are a senior software engineer. You are given a task to generate a Postgres schema for an IoT device company.
-The devices collect environmental data on a factory floor. The data includes temperature, humidity, pressure, as 
-the main data points as well as other measurements that vary from device to device. Each device has a unique id
-and a human-readable name. We want to record the time the data was collected as well. Analysis for recent data
-includes finding outliers and anomalies based on measurements, as well as analyzing the data of particular devices for ad-hoc analysis. Historical data analysis includes analyzing the history of data for one device or getting statistics for all devices over long periods of time.
+> The devices collect environmental data on a factory floor. The data includes temperature, humidity, pressure, as
+> the main data points as well as other measurements that vary from device to device. Each device has a unique id
+> and a human-readable name. We want to record the time the data was collected as well. Analysis for recent data
+> includes finding outliers and anomalies based on measurements, as well as analyzing the data of particular devices for ad-hoc analysis. Historical data analysis includes analyzing the history of data for one device or getting statistics for all devices over long periods of time.
 
 ## Features
 
@@ -233,15 +232,14 @@ includes finding outliers and anomalies based on measurements, as well as analyz
   Exposes curated, opinionated PostgreSQL best-practice skills used automatically by AI coding assistants.
 
   These skills provide guidance on:
-
-  - Schema design  
-  - Indexing strategies 
-  - Data types 
-  - Data integrity and constraints  
-  - Naming conventions  
-  - Performance tuning  
+  - Schema design
+  - Indexing strategies
+  - Data types
+  - Data integrity and constraints
+  - Naming conventions
+  - Performance tuning
   - Modern PostgreSQL features
-  
+
 ## 🔌 Ecosystem Documentation
 
 Supported today:
@@ -266,6 +264,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for:
 ## 🤝 Contributing
 
 We welcome:
+
 - new Postgres best-practice skills
 - additional documentation corpora
 - search quality improvements

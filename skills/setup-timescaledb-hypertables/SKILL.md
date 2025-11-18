@@ -1,11 +1,12 @@
 ---
 name: setup-timescaledb-hypertables
-description: "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates. Instructions for selecting: partition columns, segment_by columns, order_by columns, chunk time interval, real-time aggregation."
+description: 'Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates. Instructions for selecting: partition columns, segment_by columns, order_by columns, chunk time interval, real-time aggregation.'
 ---
 
 # TimescaleDB Complete Setup
 
 Instructions for insert-heavy data patterns where data is inserted but rarely changed:
+
 - **Time-series data** (sensors, metrics, system monitoring)
 - **Event logs** (user events, audit trails, application logs)
 - **Transaction records** (orders, payments, financial transactions)
@@ -34,13 +35,16 @@ CREATE TABLE your_table_name (
 ```
 
 ### Compression Decision
+
 - **Enable by default** for insert-heavy patterns
 - **Disable** if table has vector type columns (pgvector) - indexes on vector columns incompatible with columnstore
 
 ### Partition Column Selection
+
 Must be time-based (TIMESTAMP/TIMESTAMPTZ/DATE) or integer (INT/BIGINT) with good temporal/sequential distribution.
 
 **Common patterns:**
+
 - TIME-SERIES: `timestamp`, `event_time`, `measured_at`
 - EVENT LOGS: `event_time`, `created_at`, `logged_at`
 - TRANSACTIONS: `created_at`, `transaction_time`, `processed_at`
@@ -51,26 +55,31 @@ Must be time-based (TIMESTAMP/TIMESTAMPTZ/DATE) or integer (INT/BIGINT) with goo
 **Avoid:** `updated_at` (breaks time ordering unless it's primary query dimension)
 
 ### Segment_By Column Selection
+
 **PREFER SINGLE COLUMN** - multi-column rarely optimal. Multi-column can only work for highly correlated columns (e.g., metric_name + metric_type) with sufficient row density.
 
 **Requirements:**
+
 - Frequently used in WHERE clauses (most common filter)
 - Good row density (>100 rows per value per chunk)
 - Primary logical partition/grouping
 
 **Examples:**
+
 - IoT: `device_id`
 - Finance: `symbol`
 - Metrics: `service_name`, `service_name, metric_type` (if sufficient row density), `metric_name, metric_type` (if sufficient row density)
-- Analytics: `user_id`  if sufficient row density, otherwise `session_id`
+- Analytics: `user_id` if sufficient row density, otherwise `session_id`
 - E-commerce: `product_id` if sufficient row density, otherwise `category_id`
 
 **Row density guidelines:**
+
 - Target: >100 rows per segment_by value within each chunk.
 - Poor: <10 rows per segment_by value per chunk → choose less granular column
 - What to do with low-density columns: prepend to order_by column list.
 
 **Query pattern drives choice:**
+
 ```sql
 SELECT * FROM table WHERE entity_id = 'X' AND timestamp > ...
 -- ↳ segment_by: entity_id (if >100 rows per chunk)
@@ -85,16 +94,19 @@ Creates natural time-series progression when combined with segment_by for optima
 **Most common:** `timestamp DESC`
 
 **Examples:**
-- IoT/Finance/E-commerce: `timestamp DESC` 
+
+- IoT/Finance/E-commerce: `timestamp DESC`
 - Metrics: `metric_name, timestamp DESC` (if metric_name has too low density for segment_by)
 - Analytics: `user_id, timestamp DESC` (user_id has too low density for segment_by)
 
 **Alternative patterns:**
+
 - `sequence_id DESC` for event streams with sequence numbers
 - `timestamp DESC, event_order DESC` for sub-ordering within same timestamp
 
 **Low-density column handling:**
 If a column has <100 rows per chunk (too low for segment_by), prepend it to order_by:
+
 - Example: `metric_name` has 20 rows/chunk → use `segment_by='service_name'`, `order_by='metric_name, timestamp DESC'`
 - Groups similar values together (all temperature readings, then pressure readings) for better compression
 
@@ -107,11 +119,13 @@ If a column has <100 rows per chunk (too low for segment_by), prepend it to orde
 **Sparse indexes** enable query filtering on compressed data without decompression. Store metadata per batch (~1000 rows) to eliminate batches that don't match query predicates.
 
 **Types:**
+
 - **minmax:** Min/max values per batch - for range queries (>, <, BETWEEN) on numeric/temporal columns
 
 **Use minmax for:** price, temperature, measurement, timestamp (range filtering)
 
 **Use for:**
+
 - minmax for outlier detection (temperature > 90).
 - minmax for fields that are highly correlated with segmentby and orderby columns (e.g. if orderby includes `created_at`, minmax on `updated_at` is useful).
 
@@ -127,10 +141,13 @@ ALTER TABLE table_name SET (
     timescaledb.sparse_index = 'minmax(value_1),minmax(value_2)'
 );
 ```
+
 Explicit configuration available since v2.22.0 (was auto-created since v2.16.0).
 
 ### Chunk Time Interval (Optional)
+
 Default: 7 days (use if volume unknown, or ask user). Adjust based on volume:
+
 - High frequency: 1 hour - 1 day
 - Medium: 1 day - 1 week
 - Low: 1 week - 1 month
@@ -144,6 +161,7 @@ SELECT set_chunk_time_interval('your_table_name', INTERVAL '1 day');
 ### Indexes & Primary Keys
 
 Common index patterns - composite indexes on an id and timestamp:
+
 ```sql
 CREATE INDEX idx_entity_timestamp ON your_table_name (entity_id, timestamp DESC);
 ```
@@ -153,11 +171,13 @@ CREATE INDEX idx_entity_timestamp ON your_table_name (entity_id, timestamp DESC)
 **Primary key and unique constraints rules:** Must include partition column.
 
 **Option 1: Composite PK with partition column**
+
 ```sql
 ALTER TABLE your_table_name ADD PRIMARY KEY (entity_id, timestamp);
 ```
 
 **Option 2: Single-column PK (only if it's the partition column)**
+
 ```sql
 CREATE TABLE ... (id BIGINT PRIMARY KEY, ...) WITH (tsdb.partition_column='id');
 ```
@@ -186,7 +206,7 @@ SELECT add_retention_policy('your_table_name', INTERVAL '365 days');
 
 Use different aggregation intervals for different uses.
 
-### Short-term (Minutes/Hours) 
+### Short-term (Minutes/Hours)
 
 For up-to-the-minute dashboards on high-frequency data.
 
@@ -239,6 +259,7 @@ Set up refresh policies based on your data freshness requirements.
 **schedule_interval:** Set to the same value as the end_offset but not more than 1 hour.
 
 **Hourly - frequent refresh for dashboards:**
+
 ```sql
 SELECT add_continuous_aggregate_policy('your_table_hourly',
     end_offset => INTERVAL '15 minutes',
@@ -246,6 +267,7 @@ SELECT add_continuous_aggregate_policy('your_table_hourly',
 ```
 
 **Daily - less frequent for reports:**
+
 ```sql
 SELECT add_continuous_aggregate_policy('your_table_daily',
     end_offset => INTERVAL '1 hour',
@@ -254,6 +276,7 @@ SELECT add_continuous_aggregate_policy('your_table_daily',
 
 **Use start_offset only if you don't care about refreshing old data**
 Use for high-volume systems where query accuracy on older data doesn't matter:
+
 ```sql
 -- the following aggregate can be stale for data older than 7 days
 -- SELECT add_continuous_aggregate_policy('aggregate_for_last_7_days',
@@ -284,11 +307,13 @@ Disabled by default in v2.13+, before that it was enabled by default.
 **Disable when:** Performance critical, refresh policies sufficient, high query volume, missing and stale data for recent data is acceptable
 
 **Enable for current results (higher query cost):**
+
 ```sql
 ALTER MATERIALIZED VIEW your_table_hourly SET (timescaledb.materialized_only = false);
 ```
 
 **Disable for performance (but with stale results):**
+
 ```sql
 ALTER MATERIALIZED VIEW your_table_hourly SET (timescaledb.materialized_only = true);
 ```
@@ -317,7 +342,7 @@ CALL add_columnstore_policy('your_table_daily', after => INTERVAL '7 days');
 
 ## Step 8: Aggregate Retention
 
-Aggregates are typically kept longer than raw data. 
+Aggregates are typically kept longer than raw data.
 IMPORTANT: Don't guess - ask user or you **MUST comment out if unknown**.
 
 ```sql
@@ -333,12 +358,14 @@ SELECT add_retention_policy('your_table_daily', INTERVAL '5 years');
 **Pattern:** `(filter_column, bucket DESC)` supports `WHERE filter_column = X AND bucket >= Y ORDER BY bucket DESC`
 
 Examples:
+
 ```sql
 CREATE INDEX idx_hourly_entity_bucket ON your_table_hourly (entity_id, bucket DESC);
 CREATE INDEX idx_hourly_category_bucket ON your_table_hourly (category, bucket DESC);
 ```
 
 **Multi-column filters:** Create composite indexes for `WHERE entity_id = X AND category = Y`:
+
 ```sql
 CREATE INDEX idx_hourly_entity_category_bucket ON your_table_hourly (entity_id, category, bucket DESC);
 ```
@@ -348,6 +375,7 @@ CREATE INDEX idx_hourly_entity_category_bucket ON your_table_hourly (entity_id, 
 ## Step 10: Optional Enhancements
 
 ### Space Partitioning (NOT RECOMMENDED)
+
 Only for query patterns where you ALWAYS filter by the space-partition column with expert knowledge and extensive benchmarking. STRONGLY prefer time-only partitioning.
 
 ## Step 11: Verify Configuration
@@ -369,7 +397,7 @@ SELECT * FROM timescaledb_information.jobs ORDER BY job_id;
 
 -- Monitor chunk information
 SELECT chunk_name, table_size, compressed_heap_size, compressed_index_size
-FROM timescaledb_information.chunks 
+FROM timescaledb_information.chunks
 WHERE hypertable_name = 'your_table_name';
 ```
 
@@ -383,6 +411,7 @@ WHERE hypertable_name = 'your_table_name';
 ## Schema Best Practices
 
 ### Do's and Don'ts
+
 - ✅ Use `TIMESTAMPTZ` NOT `timestamp`
 - ✅ Use `>=` and `<` NOT `BETWEEN` for timestamps
 - ✅ Use `TEXT` with constraints NOT `char(n)`/`varchar(n)`
@@ -397,25 +426,28 @@ WHERE hypertable_name = 'your_table_name';
 ## API Reference (Current vs Deprecated)
 
 **Deprecated Parameters → New Parameters:**
+
 - `timescaledb.compress` → `timescaledb.enable_columnstore`
 - `timescaledb.compress_segmentby` → `timescaledb.segmentby`
 - `timescaledb.compress_orderby` → `timescaledb.orderby`
 
 **Deprecated Functions → New Functions:**
+
 - `add_compression_policy()` → `add_columnstore_policy()`
 - `remove_compression_policy()` → `remove_columnstore_policy()`
 - `compress_chunk()` → `convert_to_columnstore()`
 - `decompress_chunk()` → `convert_to_rowstore()`
 
 **Deprecated Views → New Views:**
+
 - `compression_settings` → `columnstore_settings`
 - `hypertable_compression_settings` → `hypertable_columnstore_settings`
 - `chunk_compression_settings` → `chunk_columnstore_settings`
 
 **Deprecated Stats Functions → New Stats Functions:**
+
 - `hypertable_compression_stats()` → `hypertable_columnstore_stats()`
 - `chunk_compression_stats()` → `chunk_columnstore_stats()`
-
 
 ## Questions to Ask User
 

@@ -23,22 +23,23 @@ Add your OPENAI_API_KEY to be used for generating embeddings.
 The server supports disabling MCP skills through different mechanisms for each transport:
 
 #### HTTP Transport
+
 Pass parameters as query strings:
+
 ```
 https://mcp.tigerdata.com/docs?disable_mcp_skills=1
 ```
 
 #### Stdio Transport
+
 Use environment variables in the connection configuration:
+
 ```json
 {
   "mcpServers": {
     "pg-aiguide": {
       "command": "node",
-      "args": [
-        "/path/to/dist/index.js",
-        "stdio"
-      ],
+      "args": ["/path/to/dist/index.js", "stdio"],
       "env": {
         "DISABLE_MCP_SKILLS": "1"
       }
@@ -48,17 +49,19 @@ Use environment variables in the connection configuration:
 ```
 
 Or when running directly:
+
 ```bash
 DISABLE_MCP_SKILLS=1 node dist/index.js stdio
 ```
 
 #### Available Parameters
 
-| Parameter | HTTP Query | Stdio Env Var | Values | Description |
-|-----------|------------|---------------|--------|-------------|
+| Parameter          | HTTP Query           | Stdio Env Var        | Values    | Description                                                                                                                                                   |
+| ------------------ | -------------------- | -------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Disable MCP Skills | `disable_mcp_skills` | `DISABLE_MCP_SKILLS` | 1 or true | Disable all MCP skills (tools and prompt templates). This removes the `view_skill` tool and all skill-based prompt templates from the available capabilities. |
 
 **Examples:**
+
 - HTTP: `?disable_mcp_skills=1`
 - Stdio: `DISABLE_MCP_SKILLS=1`
 - Default (skills enabled): No parameter needed
@@ -74,6 +77,7 @@ Use the [tiger CLI](https://github.com/timescale/tiger-cli) to create a Tiger Cl
 ```bash
 tiger service create --free --with-password -o json
 ```
+
 Copy your database connection parameters into your .env file.
 
 ### Using Docker
@@ -135,10 +139,7 @@ Create/edit the file `~/Library/Application Support/Claude/claude_desktop_config
   "mcpServers": {
     "pg-aiguide": {
       "command": "node",
-      "args": [
-        "/absolute/path/to/pg-aiguide/dist/index.js",
-        "stdio"
-      ],
+      "args": ["/absolute/path/to/pg-aiguide/dist/index.js", "stdio"],
       "env": {
         "PGHOST": "x.y.tsdb.cloud.timescale.com",
         "PGDATABASE": "tsdb",

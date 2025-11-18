@@ -4,7 +4,6 @@ import { apiFactories } from './apis/index.js';
 import { promptFactories } from './skillutils/index.js';
 import { context, serverInfo } from './serverInfo.js';
 
-
 stdioServerFactory({
   ...serverInfo,
   context,

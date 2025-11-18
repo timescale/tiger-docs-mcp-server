@@ -10,8 +10,8 @@ pg-aiguide helps AI coding tools write dramatically better PostgreSQL code. It p
 
 Use it either as:
 
-- a **public MCP server**, or
-- a **Claude Code plugin** with native skill support.
+- a **public MCP server** that can be used with any AI coding agent, or
+- a **Claude Code plugin** optimized for use with Claude's native skill support.
 
 ## ⭐ Why pg-aiguide?
 
@@ -204,11 +204,11 @@ Add the following to `~/.codeium/windsurf/mcp_config.json`
 
 Once installed, pg-aiguide can answer Postgres questions or design schemas.
 
-**Simple schema example**
+**Simple schema example prompt**
 
 > Create a Postgres table schema for storing usernames and unique email addresses.
 
-**Complex schema example**
+**Complex schema example prompt**
 
 > You are a senior software engineer. You are given a task to generate a Postgres schema for an IoT device company.
 > The devices collect environmental data on a factory floor. The data includes temperature, humidity, pressure, as

@@ -8,12 +8,7 @@ const inputSchema = {
     .min(1)
     .nullable()
     .describe('The maximum number of matches to return. Defaults to 10.'),
-  keywords: z
-    .string()
-    .min(1)
-    .describe(
-      'The set of keywords to search for.',
-    ),
+  keywords: z.string().min(1).describe('The set of keywords to search for.'),
 } as const;
 
 const zEmbeddedDoc = z.object({
@@ -40,6 +35,10 @@ const outputSchema = {
   results: z.array(zEmbeddedDoc),
 } as const;
 
+type OutputSchema = {
+  [K in keyof typeof outputSchema]: z.infer<(typeof outputSchema)[K]>;
+};
+
 export const keywordSearchTigerDocsFactory: ApiFactory<
   ServerContext,
   typeof inputSchema,
@@ -57,7 +56,7 @@ export const keywordSearchTigerDocsFactory: ApiFactory<
     outputSchema,
   },
   disabled: process.env.ENABLE_KEYWORD_SEARCH !== 'true',
-  fn: async ({ keywords, limit }) => {
+  fn: async ({ keywords, limit }): Promise<OutputSchema> => {
     const result = await pgPool.query<EmbeddedDoc>(
       /* sql */ `
 SELECT

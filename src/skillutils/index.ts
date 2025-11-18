@@ -28,7 +28,7 @@ export type Skill = z.infer<typeof zSkill>;
 // ===== Skill Loading Implementation =====
 
 // Cache for skill content
-let skillContentCache: Map<string, string> = new Map();
+const skillContentCache: Map<string, string> = new Map();
 let skillMapPromise: Promise<Map<string, Skill>> | null = null;
 
 /**
@@ -71,10 +71,7 @@ async function doLoadSkills(): Promise<Map<string, Skill>> {
   const skills = new Map<string, Skill>();
   skillContentCache.clear();
 
-  const alreadyExists = (
-    name: string,
-    path: string,
-  ): boolean => {
+  const alreadyExists = (name: string, path: string): boolean => {
     const existing = skills.get(name);
     if (existing) {
       log.warn(
@@ -85,7 +82,7 @@ async function doLoadSkills(): Promise<Map<string, Skill>> {
     return false;
   };
 
-  const loadLocalPath = async (path: string) => {
+  const loadLocalPath = async (path: string): Promise<void> => {
     const skillPath = join(path, 'SKILL.md');
     try {
       const fileContent = await readFile(skillPath, 'utf-8');
@@ -117,11 +114,12 @@ async function doLoadSkills(): Promise<Map<string, Skill>> {
     }
 
     if (skills.size === 0) {
-      log.warn('No skills found. Please add SKILL.md files to the skills/ subdirectories.');
+      log.warn(
+        'No skills found. Please add SKILL.md files to the skills/ subdirectories.',
+      );
     } else {
       log.info(`Successfully loaded ${skills.size} skill(s)`);
     }
-
   } catch (err) {
     log.error('Failed to load skills', err as Error);
   }
@@ -173,7 +171,7 @@ export const viewSkillContent = async (
     const content = await readFile(fullPath, 'utf-8');
     skillContentCache.set(cacheKey, content);
     return content;
-  } catch (err) {
+  } catch {
     throw new Error(`Failed to read skill content: ${name}/${targetPath}`);
   }
 };
@@ -181,32 +179,44 @@ export const viewSkillContent = async (
 // Initialize skills on module load
 export const skills = await loadSkills();
 
+interface PromptResult {
+  [x: string]: unknown;
+  description: string;
+  messages: {
+    role: 'user';
+    content: {
+      type: 'text';
+      text: string;
+    };
+  }[];
+}
+
 // Export skills as prompt factories for MCP server
-export const promptFactories: PromptFactory<ServerContext, {}>[] = Array.from(skills.entries()).map(
-  ([name, skillData]) =>
-    () => ({
-      name,
-      config: {
-        // Using the dash-separated name as the title to work around a problem in Claude Code
-        // See https://github.com/anthropics/claude-code/issues/7464
-        title: name,
-        description: skillData.description,
-        inputSchema: {}, // No arguments for static skills
-      },
-      fn: async () => {
-        const content = await viewSkillContent(name);
-        return {
-          description: skillData.description || name,
-          messages: [
-            {
-              role: 'user' as const,
-              content: {
-                type: 'text' as const,
-                text: content,
-              },
-            },
-          ],
-        };
-      },
-    }),
-);
+export const promptFactories: PromptFactory<
+  ServerContext,
+  Record<string, never>
+>[] = Array.from(skills.entries()).map(([name, skillData]) => () => ({
+  name,
+  config: {
+    // Using the dash-separated name as the title to work around a problem in Claude Code
+    // See https://github.com/anthropics/claude-code/issues/7464
+    title: name,
+    description: skillData.description,
+    inputSchema: {}, // No arguments for static skills
+  },
+  fn: async (): Promise<PromptResult> => {
+    const content = await viewSkillContent(name);
+    return {
+      description: skillData.description || name,
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: content,
+          },
+        },
+      ],
+    };
+  },
+}));

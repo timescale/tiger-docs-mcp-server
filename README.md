@@ -1,4 +1,4 @@
-# pg-aiguide 
+# pg-aiguide
 
 pg-aiguide helps AI coding tools write better code. It supercharges AI assistants with deep PostgreSQL knowledge by providing:
 
@@ -10,9 +10,9 @@ or a [claude plugin](https://www.claude.com/blog/claude-code-plugins). The claud
 
 ## Quick Start
 
-This project can be installed as a Claude Code plugin or used as a free MCP server available at [https://mcp.tigerdata.com/docs](https://mcp.tigerdata.com/docs). 
+This project can be installed as a Claude Code plugin or used as a free MCP server available at [https://mcp.tigerdata.com/docs](https://mcp.tigerdata.com/docs).
 
-**Claude Code** installation: 
+**Claude Code** installation:
 
 This repo serves as a claude code marketplace plugin. To install, run:
 
@@ -23,7 +23,6 @@ claude plugin install pg@aiguide
 
 This plugin uses the skills available in the `skills` directory as well as our
 publicly available MCP server endpoint hosted by TigerData for searching PostgreSQL documentation.
-
 
 **Publicly available MCP Server**
 
@@ -61,8 +60,8 @@ Searches the PostgreSQL documentation for relevant entries based on semantic sim
 ```jsonc
 {
   "prompt": "What is the SQL command to create a table?",
-  "version": 17,  // optional, default is 17 (supports versions 14-18)
-  "limit": 10     // optional, default is 10
+  "version": 17, // optional, default is 17 (supports versions 14-18)
+  "limit": 10, // optional, default is 10
 }
 ```
 
@@ -74,11 +73,11 @@ Searches the PostgreSQL documentation for relevant entries based on semantic sim
     {
       "id": 11716,
       "content": "CREATE TABLE ...",
-      "metadata": "{...}",  // JSON-encoded metadata
-      "distance": 0.407     // lower = more relevant
-    }
+      "metadata": "{...}", // JSON-encoded metadata
+      "distance": 0.407, // lower = more relevant
+    },
     // ...more results
-  ]
+  ],
 }
 ```
 
@@ -93,7 +92,7 @@ Searches the TigerData and TimescaleDB documentation using semantic similarity.
 ```jsonc
 {
   "prompt": "How do I set up continuous aggregates?",
-  "limit": 10  // optional, default is 10
+  "limit": 10, // optional, default is 10
 }
 ```
 
@@ -112,8 +111,8 @@ when deploying as a claude plugin (which use [agent skills ](https://www.claude.
 
 ```jsonc
 {
-  "name": "setup-timescaledb-hypertables",  // see available skills in tool description
-  "path": "SKILL.md"  // optional, defaults to "SKILL.md"
+  "name": "setup-timescaledb-hypertables", // see available skills in tool description
+  "path": "SKILL.md", // optional, defaults to "SKILL.md"
 }
 ```
 
@@ -124,7 +123,7 @@ when deploying as a claude plugin (which use [agent skills ](https://www.claude.
   "name": "setup-timescaledb-hypertables",
   "path": "SKILL.md",
   "description": "Step-by-step instructions for designing table schemas and setting up TimescaleDB with hypertables, indexes, compression, retention policies, and continuous aggregates.",
-  "content": "..."  // full skill content
+  "content": "...", // full skill content
 }
 ```
 

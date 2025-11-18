@@ -9,7 +9,9 @@ const inputSchema = {
     .number()
     .int()
     .nullable()
-    .describe('The PostgreSQL major version (e.g., 17, not 17.2) to use for the query. Defaults to 17.'),
+    .describe(
+      'The PostgreSQL major version (e.g., 17, not 17.2) to use for the query. Defaults to 17.',
+    ),
   limit: z.coerce
     .number()
     .min(1)
@@ -47,6 +49,10 @@ const outputSchema = {
   results: z.array(zEmbeddedDoc),
 } as const;
 
+type OutputSchema = {
+  [K in keyof typeof outputSchema]: z.infer<(typeof outputSchema)[K]>;
+};
+
 export const semanticSearchPostgresDocsFactory: ApiFactory<
   ServerContext,
   typeof inputSchema,
@@ -63,7 +69,7 @@ export const semanticSearchPostgresDocsFactory: ApiFactory<
     inputSchema,
     outputSchema,
   },
-  fn: async ({ prompt, version, limit }) => {
+  fn: async ({ prompt, version, limit }): Promise<OutputSchema> => {
     const { embedding } = await embed({
       model: openai.embedding('text-embedding-3-small'),
       value: prompt,

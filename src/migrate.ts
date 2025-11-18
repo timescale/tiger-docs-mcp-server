@@ -6,19 +6,23 @@ import { fileURLToPath } from 'url';
 import { schema } from './config.js';
 
 // Use a hash of the project name
-const hash = createHash('sha256')
-  .update('pg-aiguide')
-  .digest('hex');
+const hash = createHash('sha256').update('pg-aiguide').digest('hex');
 const MIGRATION_ADVISORY_LOCK_ID = parseInt(hash.substring(0, 15), 16);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const createStateStore = () => {
+const createStateStore = (): {
+  load(callback: (err: Error | null, set?: unknown) => void): Promise<void>;
+  save(set: unknown, callback: (err: Error | null) => void): Promise<void>;
+  close(): Promise<void>;
+} => {
   let client: Client;
 
   return {
-    async load(callback: (err: Error | null, set?: any) => void) {
+    async load(
+      callback: (err: Error | null, set?: unknown) => void,
+    ): Promise<void> {
       try {
         client = new Client();
         await client.connect();
@@ -54,7 +58,10 @@ const createStateStore = () => {
       }
     },
 
-    async save(set: any, callback: (err: Error | null) => void) {
+    async save(
+      set: unknown,
+      callback: (err: Error | null) => void,
+    ): Promise<void> {
       try {
         // Insert the entire set as JSONB
         await client.query(
@@ -68,7 +75,7 @@ const createStateStore = () => {
       }
     },
 
-    async close() {
+    async close(): Promise<void> {
       if (client) {
         // Release advisory lock
         await client.query(/* sql */ `SELECT pg_advisory_unlock($1)`, [

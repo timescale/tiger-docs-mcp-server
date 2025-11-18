@@ -16,13 +16,19 @@ export const parseFeatureFlags = (
 
   // Check query parameters first (for HTTP transport)
   if (query) {
-    if (query.disable_mcp_skills === '1' || query.disable_mcp_skills === 'true') {
+    if (
+      query.disable_mcp_skills === '1' ||
+      query.disable_mcp_skills === 'true'
+    ) {
       mcpSkillsEnabled = false;
     }
   }
   // Fall back to environment variables (for stdio transport)
   else if (process.env.DISABLE_MCP_SKILLS) {
-    if (process.env.DISABLE_MCP_SKILLS === '1' || process.env.DISABLE_MCP_SKILLS === 'true') {
+    if (
+      process.env.DISABLE_MCP_SKILLS === '1' ||
+      process.env.DISABLE_MCP_SKILLS === 'true'
+    ) {
       mcpSkillsEnabled = false;
     }
   }

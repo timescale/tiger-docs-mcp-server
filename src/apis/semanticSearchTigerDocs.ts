@@ -42,6 +42,10 @@ const outputSchema = {
   results: z.array(zEmbeddedDoc),
 } as const;
 
+type OutputSchema = {
+  [K in keyof typeof outputSchema]: z.infer<(typeof outputSchema)[K]>;
+};
+
 export const semanticSearchTigerDocsFactory: ApiFactory<
   ServerContext,
   typeof inputSchema,
@@ -58,7 +62,7 @@ export const semanticSearchTigerDocsFactory: ApiFactory<
     inputSchema,
     outputSchema,
   },
-  fn: async ({ prompt, limit }) => {
+  fn: async ({ prompt, limit }): Promise<OutputSchema> => {
     const { embedding } = await embed({
       model: openai.embedding('text-embedding-3-small'),
       value: prompt,

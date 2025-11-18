@@ -27,6 +27,7 @@ ORDER BY ordinal_position;
 Should represent when the event actually occurred or sequential ordering.
 
 **Common choices:**
+
 - `timestamp`, `created_at`, `event_time` - when event occurred
 - `id`, `sequence_number` - auto-increment (for sequential data without timestamps)
 - `ingested_at` - less ideal, only if primary query dimension
@@ -77,10 +78,11 @@ FROM time_range tr, total_index_size tis;
 **Range:** 1 hour minimum, 30 days maximum
 
 **Example:** 32GB RAM → target 8GB for recent indexes. If index_size_per_hour = 200MB:
+
 - 1 hour chunks: 200MB chunk index size × 40 recent = 8GB ✓
 - 6 hour chunks: 1.2GB chunk index size × 7 recent = 8.4GB ✓
 - 1 day chunks: 4.8GB chunk index size × 2 recent = 9.6GB ⚠️
-Choose largest interval keeping 2+ recent chunk indexes under target.
+  Choose largest interval keeping 2+ recent chunk indexes under target.
 
 ### Primary Key/ Unique Constraints Compatibility
 
@@ -94,21 +96,25 @@ WHERE conrelid = 'your_table_name'::regclass AND contype = 'p' OR contype = 'u';
 **Rules:** PK/UNIQUE must include partition column
 
 **Actions:**
+
 1. **No PK/UNIQUE:** No changes needed
 2. **PK/UNIQUE includes partition column:** No changes needed
 3. **PK/UNIQUE excludes partition column:** ⚠️ **ASK USER PERMISSION** to modify PK/UNIQUE
 
 **Example: user prompt if needed:**
+
 > "Primary key (id) doesn't include partition column (timestamp). Must modify to PRIMARY KEY (id, timestamp) to convert to hypertable. This may break application code. Is this acceptable?"
 > "Unique constraint (id) doesn't include partition column (timestamp). Must modify to UNIQUE (id, timestamp) to convert to hypertable. This may break application code. Is this acceptable?"
 
 If the user accepts, modify the constraint:
+
 ```sql
 BEGIN;
 ALTER TABLE your_table_name DROP CONSTRAINT existing_pk_name;
 ALTER TABLE your_table_name ADD PRIMARY KEY (existing_columns, partition_column);
 COMMIT;
 ```
+
 If the user does not accept, you should NOT migrate the table.
 
 IMPORTANT: DO NOT modify the primary key/unique constraint without user permission.
@@ -118,6 +124,7 @@ IMPORTANT: DO NOT modify the primary key/unique constraint without user permissi
 For detailed segment_by and order_by selection, see "setup-timescaledb-hypertables" skill. Quick reference:
 
 **segment_by:** Most common WHERE filter with >100 rows per value per chunk
+
 - IoT: `device_id`
 - Finance: `symbol`
 - Analytics: `user_id` or `session_id`
@@ -130,10 +137,10 @@ FROM your_table_name GROUP BY column_name;
 ```
 
 **order_by:** Usually `timestamp DESC`. The (segment_by, order_by) combination should form a natural time-series progression.
+
 - If column has <100 rows/chunk (too low for segment_by), prepend to order_by: `order_by='low_density_col, timestamp DESC'`
 
 **sparse indexes:** add minmax on the columns that are used in the WHERE clauses but are not in the segment_by or order_by. Use minmax for columns used in range queries.
-
 
 ```sql
 ALTER TABLE your_table_name SET (
@@ -241,7 +248,7 @@ WHERE (conrelid = 'your_table_name'::regclass
 ```
 
 **Supported:** Plain→Hypertable, Hypertable→Plain
-**NOT supported:** Hypertable→Hypertable 
+**NOT supported:** Hypertable→Hypertable
 
 ⚠️ **CRITICAL:** Hypertable→Hypertable FKs must be dropped (enforce in application). **ASK USER PERMISSION**. If no, **STOP MIGRATION**.
 
@@ -278,6 +285,7 @@ ORDER BY range_start DESC;
 ```
 
 **Look for:**
+
 - Consistent chunk sizes (within 2x)
 - Compression >90% for time-series
 - Recent chunks uncompressed
@@ -306,12 +314,14 @@ GROUP BY 1, 2;
 ```
 
 **✅ Good signs:**
+
 - "Chunks excluded during startup: X" in EXPLAIN plan
 - "Custom Scan (ColumnarScan)" for compressed data
 - Lower "Buffers: shared read" in EXPLAIN ANALYZE plan than pre-migration
 - Faster execution times
 
 **❌ Bad signs:**
+
 - "Seq Scan" on large chunks
 - No chunk exclusion messages
 - Slower than before migration
@@ -332,6 +342,7 @@ WHERE hypertable_name = 'your_table_name';
 ```
 
 **Monitor:**
+
 - compression_ratio_pct >90% (typical time-series)
 - compressed_pct_of_total growing as data ages
 - Size growth slowing significantly vs pre-hypertable
@@ -371,14 +382,14 @@ GROUP BY 1 ORDER BY 2 DESC;
 Check that you don't have too many indexes. Unused indexes hurt insert performance and should be dropped.
 
 ```sql
-SELECT 
+SELECT
     schemaname,
     tablename,
     indexname,
     idx_tup_read,
     idx_tup_fetch,
     idx_scan
-FROM pg_stat_user_indexes 
+FROM pg_stat_user_indexes
 WHERE tablename LIKE '%your_table_name%'
 ORDER BY idx_scan DESC;
 ```
@@ -390,12 +401,12 @@ ORDER BY idx_scan DESC;
 ```sql
 -- Monitor chunk compression status
 CREATE OR REPLACE VIEW hypertable_compression_status AS
-SELECT 
+SELECT
     h.hypertable_name,
     COUNT(c.chunk_name) as total_chunks,
     COUNT(c.chunk_name) FILTER (WHERE c.compressed_total_bytes IS NOT NULL) as compressed_chunks,
     ROUND(
-        COUNT(c.chunk_name) FILTER (WHERE c.compressed_total_bytes IS NOT NULL)::numeric / 
+        COUNT(c.chunk_name) FILTER (WHERE c.compressed_total_bytes IS NOT NULL)::numeric /
         COUNT(c.chunk_name) * 100, 1
     ) as compression_coverage_pct,
     pg_size_pretty(SUM(c.total_bytes)) as total_size,
@@ -405,11 +416,12 @@ LEFT JOIN timescaledb_information.chunks c ON h.hypertable_name = c.hypertable_n
 GROUP BY h.hypertable_name;
 
 -- Query this view regularly to monitor compression progress
-SELECT * FROM hypertable_compression_status 
+SELECT * FROM hypertable_compression_status
 WHERE hypertable_name = 'your_table_name';
 ```
 
-**Look for:** 
+**Look for:**
+
 - compression_coverage_pct should increase over time as data ages and gets compressed.
 - total_chunks should not grow too quickly (more than 10000 becomes a problem).
 - You should not see unexpected spikes in total_size or compressed_size.
@@ -417,6 +429,7 @@ WHERE hypertable_name = 'your_table_name';
 ## Success Criteria
 
 **✅ Migration successful when:**
+
 - All queries return correct results
 - Query performance equal or better
 - Compression >90% for older data
@@ -424,6 +437,7 @@ WHERE hypertable_name = 'your_table_name';
 - Insert performance acceptable
 
 **❌ Investigate if:**
+
 - Query performance >20% worse
 - Compression <80%
 - No chunk exclusion

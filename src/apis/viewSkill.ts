@@ -21,6 +21,10 @@ const outputSchema = {
   content: z.string().describe('The full skill content'),
 } as const;
 
+type OutputSchema = {
+  [K in keyof typeof outputSchema]: z.infer<(typeof outputSchema)[K]>;
+};
+
 export const viewSkillFactory: ApiFactory<
   ServerContext,
   typeof inputSchema,
@@ -38,12 +42,14 @@ export const viewSkillFactory: ApiFactory<
 
 Available Skills:
 
-${Array.from(skills.values()).map(s => `**${s.name}** - ${s.description}`).join('\n\n')}
+${Array.from(skills.values())
+  .map((s) => `**${s.name}** - ${s.description}`)
+  .join('\n\n')}
 `,
       inputSchema,
       outputSchema,
     },
-    fn: async ({ name }) => {
+    fn: async ({ name }): Promise<OutputSchema> => {
       const skill = skills.get(name);
 
       if (!skill) {

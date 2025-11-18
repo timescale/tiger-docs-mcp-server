@@ -26,7 +26,7 @@ pg-aiguide fixes that by giving AI agents deep, versioned PostgreSQL knowledge a
 
 ### See the difference
 
-<video src="https://timescale.ghost.io/blog/content/media/2025/10/how-to-train-your-agent.mp4" controls width="80%"></video>
+https://github.com/user-attachments/assets/5a426381-09b5-4635-9050-f55422253a3d
 
 <details>
 <summary>Video Transcript </summary>

@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { ApiFactory } from '@tigerdata/mcp-boilerplate';
+import { ApiFactory, InferSchema } from '@tigerdata/mcp-boilerplate';
 import { embed } from 'ai';
 import { z } from 'zod';
 import { ServerContext } from '../types.js';
@@ -42,9 +42,7 @@ const outputSchema = {
   results: z.array(zEmbeddedDoc),
 } as const;
 
-type OutputSchema = {
-  [K in keyof typeof outputSchema]: z.infer<(typeof outputSchema)[K]>;
-};
+type OutputSchema = InferSchema<typeof outputSchema>;
 
 export const semanticSearchTigerDocsFactory: ApiFactory<
   ServerContext,

@@ -1,4 +1,4 @@
-import { ApiFactory } from '@tigerdata/mcp-boilerplate';
+import { ApiFactory, InferSchema } from '@tigerdata/mcp-boilerplate';
 import { z } from 'zod';
 import { ServerContext } from '../types.js';
 import { skills, viewSkillContent } from '../skillutils/index.js';
@@ -21,9 +21,7 @@ const outputSchema = {
   content: z.string().describe('The full skill content'),
 } as const;
 
-type OutputSchema = {
-  [K in keyof typeof outputSchema]: z.infer<(typeof outputSchema)[K]>;
-};
+type OutputSchema = InferSchema<typeof outputSchema>;
 
 export const viewSkillFactory: ApiFactory<
   ServerContext,

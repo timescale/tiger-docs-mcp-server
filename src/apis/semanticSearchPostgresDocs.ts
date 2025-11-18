@@ -1,4 +1,4 @@
-import { ApiFactory } from '@tigerdata/mcp-boilerplate';
+import { ApiFactory, InferSchema } from '@tigerdata/mcp-boilerplate';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
 import { z } from 'zod';
@@ -49,9 +49,7 @@ const outputSchema = {
   results: z.array(zEmbeddedDoc),
 } as const;
 
-type OutputSchema = {
-  [K in keyof typeof outputSchema]: z.infer<(typeof outputSchema)[K]>;
-};
+type OutputSchema = InferSchema<typeof outputSchema>;
 
 export const semanticSearchPostgresDocsFactory: ApiFactory<
   ServerContext,

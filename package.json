@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.68",
-    "@tigerdata/mcp-boilerplate": "^0.6.0",
+    "@tigerdata/mcp-boilerplate": "^0.7.0",
     "ai": "^5.0.93",
     "dotenv": "^17.2.3",
     "gray-matter": "^4.0.3",

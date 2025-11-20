@@ -5,10 +5,9 @@ import { ServerContext } from '../types.js';
 const inputSchema = {
   limit: z.coerce
     .number()
-    .min(1)
-    .nullable()
+    .int()
     .describe('The maximum number of matches to return. Defaults to 10.'),
-  keywords: z.string().min(1).describe('The set of keywords to search for.'),
+  keywords: z.string().describe('The set of keywords to search for.'),
 } as const;
 
 const zEmbeddedDoc = z.object({
@@ -55,6 +54,13 @@ export const keywordSearchTigerDocsFactory: ApiFactory<
   },
   disabled: process.env.ENABLE_KEYWORD_SEARCH !== 'true',
   fn: async ({ keywords, limit }): Promise<OutputSchema> => {
+    if (limit < 0) {
+      throw new Error('Limit must be a non-negative integer.');
+    }
+    if (!keywords.trim()) {
+      throw new Error('Keywords must be a non-empty string.');
+    }
+
     const result = await pgPool.query<EmbeddedDoc>(
       /* sql */ `
 SELECT

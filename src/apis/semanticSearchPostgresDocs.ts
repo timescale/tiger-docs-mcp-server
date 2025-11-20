@@ -5,21 +5,17 @@ import { z } from 'zod';
 import { ServerContext } from '../types.js';
 
 const inputSchema = {
-  version: z.coerce
-    .number()
-    .int()
-    .nullable()
+  version: z
+    .enum(['14', '15', '16', '17', '18'])
     .describe(
-      'The PostgreSQL major version (e.g., 17, not 17.2) to use for the query. Defaults to 17.',
+      'The PostgreSQL major version to use for the query. Recommended to assume the latest version if unknown.',
     ),
   limit: z.coerce
     .number()
-    .min(1)
-    .nullable()
+    .int()
     .describe('The maximum number of matches to return. Defaults to 10.'),
   prompt: z
     .string()
-    .min(1)
     .describe(
       'The natural language query used to search the PostgreSQL documentation for relevant information.',
     ),
@@ -68,6 +64,13 @@ export const semanticSearchPostgresDocsFactory: ApiFactory<
     outputSchema,
   },
   fn: async ({ prompt, version, limit }): Promise<OutputSchema> => {
+    if (limit < 0) {
+      throw new Error('Limit must be a non-negative integer.');
+    }
+    if (!prompt.trim()) {
+      throw new Error('Prompt must be a non-empty string.');
+    }
+
     const { embedding } = await embed({
       model: openai.embedding('text-embedding-3-small'),
       value: prompt,
@@ -86,7 +89,7 @@ SELECT
  ORDER BY distance
  LIMIT $3
 `,
-      [JSON.stringify(embedding), version || 17, limit || 10],
+      [JSON.stringify(embedding), version, limit || 10],
     );
 
     return {

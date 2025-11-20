@@ -7,12 +7,10 @@ import { ServerContext } from '../types.js';
 const inputSchema = {
   limit: z.coerce
     .number()
-    .min(1)
-    .nullable()
+    .int()
     .describe('The maximum number of matches to return. Defaults to 10.'),
   prompt: z
     .string()
-    .min(1)
     .describe(
       'The natural language query used to search the documentation for relevant information.',
     ),
@@ -61,6 +59,13 @@ export const semanticSearchTigerDocsFactory: ApiFactory<
     outputSchema,
   },
   fn: async ({ prompt, limit }): Promise<OutputSchema> => {
+    if (limit < 0) {
+      throw new Error('Limit must be a non-negative integer.');
+    }
+    if (!prompt.trim()) {
+      throw new Error('Prompt must be a non-empty string.');
+    }
+
     const { embedding } = await embed({
       model: openai.embedding('text-embedding-3-small'),
       value: prompt,

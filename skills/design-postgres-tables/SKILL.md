@@ -36,7 +36,7 @@ description: Comprehensive PostgreSQL-specific table design reference covering d
 - **Arrays**: `TEXT[]`, `INTEGER[]`, etc. Use for ordered lists where you query elements. Index with **GIN** for containment (`@>`, `<@`) and overlap (`&&`) queries. Access: `arr[1]` (1-indexed), `arr[1:3]` (slicing). Good for tags, categories; avoid for relations—use junction tables instead. Literal syntax: `'{val1,val2}'` or `ARRAY[val1,val2]`.
 - **Range types**: `daterange`, `numrange`, `tstzrange` for intervals. Support overlap (`&&`), containment (`@>`), operators. Index with **GiST**. Good for scheduling, versioning, numeric ranges. Pick a bounds scheme and use it consistently; prefer `[)` (inclusive/exclusive) by default.
 - **Network types**: `INET` for IP addresses, `CIDR` for network ranges, `MACADDR` for MAC addresses. Support network operators (`<<`, `>>`, `&&`).
-- **Geometric types**: `POINT`, `LINE`, `POLYGON`, `CIRCLE` for 2D spatial data. Index with **GiST**. Consider **PostGIS** for advanced spatial features.
+- **Geometric types**: avoid `POINT`, `LINE`, `POLYGON`, `CIRCLE`. Index with **GiST**. Consider **PostGIS** for spatial features.
 - **Text search**: `TSVECTOR` for full-text search documents, `TSQUERY` for search queries. Index `tsvector` with **GIN**. Always specify language: `to_tsvector('english', col)` and `to_tsquery('english', 'query')`. Never use single-argument versions. This applies to both index expressions and queries.
 - **Domain types**: `CREATE DOMAIN email AS TEXT CHECK (VALUE ~ '^[^@]+@[^@]+$')` for reusable custom types with validation. Enforces constraints across tables.
 - **Composite types**: `CREATE TYPE address AS (street TEXT, city TEXT, zip TEXT)` for structured data within columns. Access with `(col).field` syntax.
@@ -51,6 +51,7 @@ description: Comprehensive PostgreSQL-specific table design reference covering d
 - DO NOT use `timetz` type; DO use `timestamptz` instead.
 - DO NOT use `timestamptz(0)` or any other precision specification; DO use `timestamptz` instead
 - DO NOT use `serial` type; DO use `generated always as identity` instead.
+- DO NOT use `POINT`, `LINE`, `POLYGON`, `CIRCLE` built-in types, DO use `geometry` from postgis extension instead.
 
 ## Table Types
 

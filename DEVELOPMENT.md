@@ -111,6 +111,54 @@ PGPASSWORD=password
 
 Run `npm i` to install dependencies and build the project. Use `npm run watch` to rebuild on changes.
 
+### Run locally (Windows PowerShell)
+
+These PowerShell commands show a minimal local workflow for Windows users. Adjust paths and secrets for your environment and DO NOT commit `.env`.
+
+```powershell
+# 1) copy sample env and edit
+copy .env.sample .env
+code .env   # or use notepad .env
+
+# 2) install deps and build
+npm install
+npm run build
+
+# 3) (optional) start a local TimescaleDB with Docker if you don't have a DB
+docker pull timescale/timescaledb-ha:pg17
+docker run -d --name pg-aiguide `
+  -e POSTGRES_PASSWORD=password `
+  -e POSTGRES_DB=tsdb `
+  -e POSTGRES_USER=tsdbadmin `
+  -p 127.0.0.1:5432:5432 `
+  timescale/timescaledb-ha:pg17
+
+# Edit .env to point at the DB (example values):
+# PGHOST=localhost
+# PGPORT=5432
+# PGDATABASE=tsdb
+# PGUSER=tsdbadmin
+# PGPASSWORD=password
+
+# 4) ingest docs (see ingest/README.md) - example for python-based script
+cd ingest
+python postgres_docs.py
+cd ..
+
+# 5) run the server (stdio or http)
+npm run start       # starts dist/index.js stdio
+# or
+npm run start:http
+
+# 6) run the inspector in another terminal to test
+npm run inspector
+```
+
+Notes:
+- If you plan to use embeddings, set `OPENAI_API_KEY` in `.env` before running ingestion.
+- The `build` script uses `shx` to set executable permissions on `dist/*.js`; if you see errors on Windows, ensure `shx` is installed (it's a devDependency) and try running `npm run build` from a Git Bash or WSL shell as a fallback.
+- For a faster edit loop while developing TypeScript sources, use `npm run watch` in one terminal and run the inspector or server in another.
+
 ## Loading the Database
 
 The database is NOT preloaded with the documentation. To make the MCP server usable, you need to scrape, chunk, embed, load, and index the documentation.
